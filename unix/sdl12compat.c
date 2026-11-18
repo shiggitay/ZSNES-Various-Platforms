@@ -63,6 +63,11 @@ bool zs3_Init(Uint32 const flags)
 {
     Uint32 const f = sdl12_flags(flags);
 
+    /* SDL 1.2 reads a grabbed mouse through XFree86-DGA and only switches it
+       off on a clean exit: kill the process and the X server's pointer stays
+       frozen. Plain X events are enough here. Left alone if the user set it. */
+    setenv("SDL_VIDEO_X11_DGAMOUSE", "0", 0);
+
     /* No parachute: ZSNES installs its own signal handlers (the SDL3 build
        says so with SDL_HINT_NO_SIGNAL_HANDLERS). */
     if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0 && SDL_Init(SDL_INIT_NOPARACHUTE) != 0)
