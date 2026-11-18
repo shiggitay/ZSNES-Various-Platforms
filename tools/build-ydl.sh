@@ -3,8 +3,8 @@
 # PowerPC Linux systems, from Debian or Ubuntu.
 #
 # The binary is linked against Debian 4.0 "etch" (glibc 2.3.6, SDL 1.2.11), so
-# it needs nothing newer than GLIBC_2.3.4 and libSDL-1.2.so.0 at run time:
-# Yellow Dog Linux 5, 6 and 7 all qualify. The packages come from
+# it needs nothing newer than GLIBC_2.3 and libSDL-1.2.so.0 at run time:
+# Yellow Dog Linux 3.0 and later qualify. The packages come from
 # archive.debian.org and are checked against the SHA1 sums in etch's index.
 #
 #   apt install -y gcc-powerpc-linux-gnu curl python3 make pkg-config
@@ -57,8 +57,9 @@ fi
 
 # 2. A compiler confined to the sysroot. The distribution's cross gcc searches
 #    its own modern glibc first, so headers and libraries are named outright.
-#    No stack protector (glibc 2.4) and 32-bit time_t/off_t (64-bit ones are
-#    glibc 2.34). libgcc static: the old systems' libgcc_s is older than ours.
+#    No stack protector (glibc 2.4), no _FORTIFY_SOURCE (its __*_chk
+#    functions are glibc 2.3.4; the -U comes after the Makefile's -D so it
+#    wins) and 32-bit time_t/off_t (64-bit ones are glibc 2.34). libgcc static: the old systems' libgcc_s is older than ours.
 mkdir -p "$BIN"
 GI=$($CC -print-file-name=include)
 cat > "$BIN/ydl-gcc" <<EOF
@@ -68,7 +69,7 @@ case " \$* " in
   *" -E "*|*" -c "*|*" -S "*|*" -M"*) LINK= ;;
   *) LINK="-B\$R/usr/lib/ -L\$R/usr/lib -L\$R/lib -Wl,-rpath-link,\$R/usr/lib:\$R/lib -Wl,--allow-shlib-undefined -static-libgcc" ;;
 esac
-exec $CC --sysroot=\$R -nostdinc -isystem $GI -isystem \$R/usr/include -fgnu89-inline -fno-stack-protector -U_TIME_BITS -U_FILE_OFFSET_BITS -D_FILE_OFFSET_BITS=32 \$LINK "\$@"
+exec $CC --sysroot=\$R -nostdinc -isystem $GI -isystem \$R/usr/include -fgnu89-inline -fno-stack-protector -U_TIME_BITS -U_FILE_OFFSET_BITS -D_FILE_OFFSET_BITS=32 \$LINK "\$@" -U_FORTIFY_SOURCE
 EOF
 cat > "$BIN/ydl-sdl-config" <<EOF
 #!/bin/sh
@@ -93,6 +94,6 @@ make linux_ppc WITH_SDL12=yes WITH_PNG= BUILD_DIR=build-ydl \
     SDL_CONFIG="$BIN/ydl-sdl-config" ${MAKEARGS:-}
 
 echo
-echo "glibc symbol versions the binary needs (Yellow Dog Linux 5, 6 and 7 provide all of them):"
+echo "glibc symbol versions the binary needs (glibc 2.3 or newer provides all of them):"
 powerpc-linux-gnu-objdump -T zsnes | grep -o 'GLIBC_[0-9.]*' | sort -uV | tr '\n' ' '
 echo

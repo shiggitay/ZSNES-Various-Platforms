@@ -203,8 +203,8 @@ make linux_ppc WITH_SDL12=yes SDL_CONFIG=/path/to/ppc/bin/sdl-config \
 For Yellow Dog Linux itself, `tools/build-ydl.sh` does the whole cross build on
 Debian or Ubuntu: it fetches Debian 4.0's PowerPC glibc 2.3.6 and SDL 1.2.11 from
 archive.debian.org (checking them against the archive's SHA1 sums), builds
-against them, and leaves a `zsnes` that needs nothing newer than `GLIBC_2.3.4`
-and `libSDL-1.2.so.0` - which Yellow Dog Linux 5, 6 and 7 all have. That build
+against them, and leaves a `zsnes` that needs nothing newer than `GLIBC_2.3`
+and `libSDL-1.2.so.0` - which Yellow Dog Linux 3.0 and later all have. That build
 saves screenshots as BMP rather than PNG.
 
 ```sh
