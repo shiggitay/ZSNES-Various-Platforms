@@ -38,13 +38,38 @@ static Uint32 sdl12_flags(Uint32 const f)
     return r;
 }
 
+/* SDL 1.2 starts its audio with the driver SDL_AUDIODRIVER names - KDE
+   desktops often set it to arts - and fails outright if that one does. Fall
+   back to any driver that starts, through SDL_AUDIODRIVER so SDL's own
+   bookkeeping stays right. */
+static bool init_audio_any(void)
+{
+    static char const* const drivers[] = { "alsa", "dsp", "dma", "esd", "arts", "nas" };
+    size_t i;
+
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0)
+        return true;
+    for (i = 0; i < sizeof drivers / sizeof drivers[0]; i++) {
+        setenv("SDL_AUDIODRIVER", drivers[i], 1);
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0) {
+            fprintf(stderr, "Audio: using SDL's %s driver\n", drivers[i]);
+            return true;
+        }
+    }
+    return false;
+}
+
 bool zs3_Init(Uint32 const flags)
 {
+    Uint32 const f = sdl12_flags(flags);
+
     /* No parachute: ZSNES installs its own signal handlers (the SDL3 build
        says so with SDL_HINT_NO_SIGNAL_HANDLERS). */
-    if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0)
-        return SDL_Init(sdl12_flags(flags) | SDL_INIT_NOPARACHUTE) == 0;
-    return SDL_InitSubSystem(sdl12_flags(flags)) == 0;
+    if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0 && SDL_Init(SDL_INIT_NOPARACHUTE) != 0)
+        return false;
+    if ((f & ~SDL_INIT_AUDIO) && SDL_InitSubSystem(f & ~SDL_INIT_AUDIO) != 0)
+        return false;
+    return !(f & SDL_INIT_AUDIO) || init_audio_any();
 }
 
 bool zs3_InitSubSystem(Uint32 const flags) { return zs3_Init(flags); }
@@ -752,6 +777,29 @@ static void audio_callback(void* const userdata, Uint8* const out, int const len
         memset(out + n, 0, (size_t)len - n);
 }
 
+/* SDL 1.2 settles on one audio driver at start-up - often aRts or ESD, whose
+   sound server need not be running - and gives up if that one cannot open.
+   Try the rest before going without sound: ALSA and OSS (/dev/dsp) talk to
+   the hardware directly and are on every Linux of the era. */
+static int open_any_driver(SDL_AudioSpec* const want)
+{
+    static char const* const drivers[] = { "alsa", "dsp", "dma", "esd", "arts", "nas" };
+    char tried[32] = "";
+    size_t i;
+
+    SDL_AudioDriverName(tried, (int)sizeof tried);
+    for (i = 0; i < sizeof drivers / sizeof drivers[0]; i++) {
+        if (strcmp(tried, drivers[i]) == 0)
+            continue;
+        SDL_AudioQuit();
+        if (SDL_AudioInit(drivers[i]) == 0 && SDL_OpenAudio(want, NULL) == 0) {
+            fprintf(stderr, "Audio: using SDL's %s driver\n", drivers[i]);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, zs3_AudioSpec const* const spec,
     SDL_AudioStreamCallback const cb, void* const userdata)
 {
@@ -771,7 +819,7 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, zs3_Audi
     want.userdata = s;
     /* No obtained spec: SDL 1.2 then converts to the device itself, so the
        format asked for is the format the callback fills. */
-    if (SDL_OpenAudio(&want, NULL) != 0) {
+    if (SDL_OpenAudio(&want, NULL) != 0 && !open_any_driver(&want)) {
         free(s);
         return NULL;
     }
