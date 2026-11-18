@@ -67,7 +67,7 @@ cat > "$BIN/ydl-gcc" <<EOF
 R=$SYSROOT
 case " \$* " in
   *" -E "*|*" -c "*|*" -S "*|*" -M"*) LINK= ;;
-  *) LINK="-B\$R/usr/lib/ -L\$R/usr/lib -L\$R/lib -Wl,-rpath-link,\$R/usr/lib:\$R/lib -Wl,--allow-shlib-undefined -static-libgcc" ;;
+  *) LINK="-Wl,--hash-style=both -B\$R/usr/lib/ -L\$R/usr/lib -L\$R/lib -Wl,-rpath-link,\$R/usr/lib:\$R/lib -Wl,--allow-shlib-undefined -static-libgcc" ;;
 esac
 exec $CC --sysroot=\$R -nostdinc -isystem $GI -isystem \$R/usr/include -fgnu89-inline -fno-stack-protector -U_TIME_BITS -U_FILE_OFFSET_BITS -D_FILE_OFFSET_BITS=32 \$LINK "\$@" -U_FORTIFY_SOURCE
 EOF

@@ -111,12 +111,12 @@ SDL_DisplayMode const* zs3_GetCurrentDisplayMode(SDL_DisplayID const id)
 {
     /* SDL 1.2 does not know the refresh rate; zero makes the frontend keep
        its own timer rather than pace on vsync. */
+    /* No size either: SDL_VideoInfo only gained current_w/current_h in SDL
+       1.2.10, and Yellow Dog Linux 3 has 1.2.5. The frontend only reads the
+       refresh rate. */
     static SDL_DisplayMode m;
-    SDL_VideoInfo const* const vi = SDL_GetVideoInfo();
 
     m.displayID = 1;
-    m.w = vi ? vi->current_w : 0;
-    m.h = vi ? vi->current_h : 0;
     m.pixel_density = 1.0f;
     m.refresh_rate = 0.0f;
     return &m;
