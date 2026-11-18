@@ -31,8 +31,12 @@ zreg M7SeamBP;
 static void m7_newvaluepred(u4 const* const tab, u4 const half, u2* const out,
     u4 const bx)
 {
-    s2 const* const p = (s2 const*)((u1 const*)tab + bx * 4 + half);
-    s4 const v0 = p[0], v1 = p[2], v2 = p[4];
+    /* half is the byte offset of the entry in x86's layout: 0 the low word
+       (A or C), 2 the high one (B or D). Taken from the dword's value so a
+       big-endian host picks the same one. */
+    u4 const sh = half * 8u;
+    s4 const v0 = (s2)(tab[bx] >> sh), v1 = (s2)(tab[bx + 1] >> sh),
+             v2 = (s2)(tab[bx + 2] >> sh);
 
     if ((u2)v2 != (u2)v0 && BGMA[bx + 2] == 7) {
         /* Quadratic step: a 64-bit product over the two-scanline span. The

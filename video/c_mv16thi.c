@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "c_mv16tt.h"
 #include "makevid.h"
 
@@ -47,7 +48,7 @@ static void hi_half(tt_regs* const r, u1 const* const tile,
     }
     eax = (u1)(eax + adder);
     r->ax = eax;
-    memcpy(&t, ebp + n * 2, 4);
+    t = ld16pair(ebp + n * 2); /* this pixel and the next, as x86 loaded them */
     col = pal16b[eax];
     /* A transparent pixel underneath means there is nothing to average with,
        so the colour goes down unchanged. */
@@ -110,7 +111,7 @@ static void tiles(tt_regs* const r, u4 const hofs, u1* esi, int const mode,
     do {
         u1 attr;
 
-        eax = (eax & 0xFFFF0000u) | *edi++;
+        eax = (eax & 0xFFFF0000u) | ld16le(edi++);
         attr = (u1)((eax >> 8) ^ curbgpr);
         if (winon_) {
             ecx = (ecx & 0xFFFFFF00u) | attr;

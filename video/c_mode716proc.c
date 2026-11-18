@@ -60,10 +60,9 @@ extern u4 mmode7xpos8[2], mmode7ypos8[2], mode7xpos8[2], mode7ypos8[2];
 
 static u4 dword_at1(u4 const* const p)
 {
-    u4 v;
-
-    memcpy(&v, (u1 const*)p + 1, 4);
-    return v;
+    /* Bytes 1-4 of the little-endian pair: the position's upper three and
+       the spacer's lowest, as x86 loaded them. */
+    return p[0] >> 8 | p[1] << 24;
 }
 
 static u1 byte1(u4 const v)

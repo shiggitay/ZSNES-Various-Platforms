@@ -6,7 +6,7 @@ define newline
 
 
 endef
-BUILD_OPTIONS := WITH_OPENGL WITH_PNG WITH_SDL WITH_PIPEWIRE WITH_AO \
+BUILD_OPTIONS := WITH_OPENGL WITH_PNG WITH_SDL WITH_SDL12 WITH_PIPEWIRE WITH_AO \
                  WITH_DEBUGGER WITH_DEBUG_HOOKS EXTRA_CFLAGS EXTRA_LDFLAGS DEBUG BUILD_MODE
 ifneq ($(filter install,$(MAKECMDGOALS)),)
 -include build/options.mk
@@ -19,10 +19,12 @@ LEGACY_UNSUPPORTED_ARCHES := DOS BEOS AMIGA
 HOST_OS := $(shell uname -s 2>/dev/null | tr '[:lower:]' '[:upper:]')
 HOST_OS := $(if $(filter MINGW% MSYS% CYGWIN%,$(HOST_OS)),WIN,$(HOST_OS))
 HOST_CPU := $(shell uname -m 2>/dev/null | tr '[:upper:]' '[:lower:]')
-HOST_CPU_FAMILY := $(if $(filter aarch64 arm64,$(HOST_CPU)),arm64,$(if $(filter riscv64 riscv,$(HOST_CPU)),riscv64,x86))
+# ppc64 is included because Yellow Dog Linux on the PS3 and G5 runs a 64-bit
+# kernel over a 32-bit userland; the emulator is built 32-bit either way.
+HOST_CPU_FAMILY := $(if $(filter aarch64 arm64,$(HOST_CPU)),arm64,$(if $(filter riscv64 riscv,$(HOST_CPU)),riscv64,$(if $(filter ppc ppc64 powerpc powerpc64,$(HOST_CPU)),ppc,x86)))
 HOST_BITS := $(if $(filter x86_64 amd64 aarch64 arm64 riscv64 riscv,$(HOST_CPU)),64,32)
-HOST_ARCH := $(if $(filter arm64,$(HOST_CPU_FAMILY)),aarch64,$(if $(filter riscv64,$(HOST_CPU_FAMILY)),riscv64,$(if $(filter 64,$(HOST_BITS)),x86_64,i686)))
-NAMED_TARGETS := linux_i686 linux_x86_64 linux_aarch64 linux_riscv64 \
+HOST_ARCH := $(if $(filter arm64,$(HOST_CPU_FAMILY)),aarch64,$(if $(filter riscv64,$(HOST_CPU_FAMILY)),riscv64,$(if $(filter ppc,$(HOST_CPU_FAMILY)),ppc,$(if $(filter 64,$(HOST_BITS)),x86_64,i686))))
+NAMED_TARGETS := linux_i686 linux_x86_64 linux_aarch64 linux_riscv64 linux_ppc \
                  macos_aarch64 macos_x86_64 \
                  freebsd_aarch64 freebsd_x86_64 \
                  win_i686 win_x86_64 win_aarch64 win32 win64
@@ -140,8 +142,12 @@ CPU  ?= $(HOST_CPU_FAMILY)
 ifeq ($(filter $(BITS),32 64),)
 $(error Unsupported BITS '$(BITS)'. Supported values: 32 64)
 endif
-ifeq ($(filter $(CPU),x86 arm64 riscv64),)
-$(error Unsupported CPU '$(CPU)'. Supported values: x86 arm64 riscv64)
+ifeq ($(filter $(CPU),x86 arm64 riscv64 ppc),)
+$(error Unsupported CPU '$(CPU)'. Supported values: x86 arm64 riscv64 ppc)
+endif
+# 32-bit big-endian PowerPC only (G3/G4/G5/Cell under a 32-bit userland).
+ifeq ($(CPU),ppc)
+override BITS := 32
 endif
 ifneq ($(filter $(CPU),arm64 riscv64),)
 override BITS := 64
@@ -155,6 +161,11 @@ endif
 endif
 ifeq ($(CPU),arm64)
 ARCH_CFLAGS += $(ARM64_CFLAGS)
+endif
+# PPC_CFLAGS tunes for a core, e.g. -mcpu=7450 (G4), -mcpu=970 (G5) or
+# -mcpu=cell (PS3). The default runs on any 32-bit PowerPC.
+ifeq ($(CPU),ppc)
+ARCH_CFLAGS += -m32 $(PPC_CFLAGS)
 endif
 ifeq ($(ARCH),DARWIN)
 DARWIN_ARCH ?= $(if $(filter arm64,$(CPU)),arm64,x86_64)
@@ -182,8 +193,9 @@ WARN_FLAGS := $(filter-out $(GCC_ONLY_WARN_FLAGS),$(WARN_FLAGS))
 endif
 # ARM, RISC-V and Darwin default to PIC; 64-bit x86 builds a PIE. 32-bit x86
 # stays absolute: PIE there costs a GOT register in every function, ~20%.
-X86_32 := $(if $(filter x86/32,$(CPU)/$(BITS)),yes)
-PIC_FLAGS := $(if $(or $(filter arm64 riscv64,$(CPU)),$(filter DARWIN,$(ARCH))),,$(if $(X86_32),-fno-pic,-fPIE))
+# 32-bit PowerPC is built the same way: absolute code, no PIE.
+ABS_CODE := $(if $(filter x86/32 ppc/32,$(CPU)/$(BITS)),yes)
+PIC_FLAGS := $(if $(or $(filter arm64 riscv64,$(CPU)),$(filter DARWIN,$(ARCH))),,$(if $(ABS_CODE),-fno-pic,-fPIE))
 # XSI exposes setreuid/setregid on Linux; the BSDs show everything by default.
 FEATURE_FLAGS := -D_XOPEN_SOURCE=700
 ifneq ($(filter $(ARCH),FREEBSD OPENBSD NETBSD),)
@@ -221,7 +233,7 @@ endif
 ifeq ($(ARCH),DARWIN)
 LDFLAGS += -Wl,-dead_strip -lm
 else
-LDFLAGS += -Wl,--as-needed $(if $(filter arm64 riscv64,$(CPU)),,$(if $(X86_32),-no-pie,-pie)) -Wl,--gc-sections -lm
+LDFLAGS += -Wl,--as-needed $(if $(filter arm64 riscv64,$(CPU)),,$(if $(ABS_CODE),-no-pie,-pie)) -Wl,--gc-sections -lm
 endif
 
 WITH_OPENGL   := yes
@@ -229,6 +241,10 @@ WITH_PNG      := yes
 WITH_SDL      := $(if $(filter $(ARCH),$(UNIXSDL_ARCHES)),yes,)
 WITH_PIPEWIRE :=
 WITH_AO       :=
+# The OpenGL and accelerated paths are SDL3's; with SDL 1.2 it is software.
+ifeq ($(WITH_SDL12),yes)
+override WITH_OPENGL :=
+endif
 
 # Cross builds resolve libraries from the target sysroot.
 HOST_CPU_NORM := $(HOST_CPU_FAMILY)
@@ -292,7 +308,15 @@ endif
 ifneq ($(filter $(ARCH),LINUX FREEBSD OPENBSD NETBSD DARWIN WIN),)
 AO_AVAILABLE := $(call detect_pkg_for_target,ao)
 endif
+ifeq ($(WITH_SDL12),yes)
+# SDL 1.2 instead of SDL3, through unix/sdl12compat.c: for systems with
+# nothing newer, such as Yellow Dog Linux. sdl-config for the host, or the
+# cross sysroot's when SDL_CONFIG names it.
+SDL_CONFIG ?= $(or $(shell command -v sdl-config 2>/dev/null),$(if $(call detect_pkg_for_target,sdl),$(PKG_CONFIG_ENV) $(PKG_CONFIG) sdl))
+SDL3_AVAILABLE :=
+else
 SDL3_AVAILABLE := $(call detect_pkg_for_target,sdl3)
+endif
 SDL_BACKEND_AVAILABLE := $(if $(or $(SDL3_AVAILABLE),$(strip $(SDL_CONFIG)),$(strip $(CFLAGS_SDL)),$(strip $(LDFLAGS_SDL))),yes)
 endif
 
@@ -432,7 +456,9 @@ DESTDIR ?=
 PREFIX ?= /usr
 
 ifeq ($(ARCH),LINUX)
-  LDFLAGS += -rdynamic -ldl
+  # -lrt: clock_gettime was in librt until glibc 2.17, which the PowerPC
+  # distributions of Yellow Dog Linux's era predate; later it is a stub.
+  LDFLAGS += -rdynamic -ldl -lrt
 endif
 ifneq ($(filter $(ARCH),FREEBSD OPENBSD NETBSD),)
   LDFLAGS += -rdynamic
@@ -741,7 +767,12 @@ SRCS += unix/battery.c
 SRCS += unix/c_sdlintrf.c
 SRCS += unix/lib.c
 SRCS += unix/safelib.c
+ifeq ($(WITH_SDL12),yes)
+SRCS += unix/sdl12compat.c
+CFGDEFS += -DZSNES_SDL12
+else
 SRCS += unix/sdl_render.c
+endif
 SRCS += unix/sdllink.c
 SRCS += unix/net_transport.c
 SRCS += unix/sw_draw.c
@@ -893,6 +924,7 @@ LINUX_I686_PREFIX ?= i686-linux-gnu
 LINUX_X86_64_PREFIX ?= x86_64-linux-gnu
 LINUX_AARCH64_PREFIX ?= aarch64-linux-gnu
 LINUX_RISCV64_PREFIX ?= riscv64-linux-gnu
+LINUX_PPC_PREFIX ?= powerpc-linux-gnu
 FREEBSD_X86_64_PREFIX ?= x86_64-unknown-freebsd
 FREEBSD_AARCH64_PREFIX ?= aarch64-unknown-freebsd
 
@@ -900,6 +932,7 @@ LINUX_I686_NATIVE := $(if $(and $(filter LINUX,$(HOST_OS)),$(filter i386 i486 i5
 LINUX_X86_64_NATIVE := $(if $(and $(filter LINUX,$(HOST_OS)),$(filter x86_64 amd64,$(HOST_CPU))),yes)
 LINUX_AARCH64_NATIVE := $(if $(and $(filter LINUX,$(HOST_OS)),$(filter aarch64 arm64,$(HOST_CPU))),yes)
 LINUX_RISCV64_NATIVE := $(if $(and $(filter LINUX,$(HOST_OS)),$(filter riscv64 riscv,$(HOST_CPU))),yes)
+LINUX_PPC_NATIVE := $(if $(and $(filter LINUX,$(HOST_OS)),$(filter ppc ppc64 powerpc powerpc64,$(HOST_CPU))),yes)
 FREEBSD_X86_64_NATIVE := $(if $(and $(filter FREEBSD,$(HOST_OS)),$(filter x86_64 amd64,$(HOST_CPU))),yes)
 FREEBSD_AARCH64_NATIVE := $(if $(and $(filter FREEBSD,$(HOST_OS)),$(filter aarch64 arm64,$(HOST_CPU))),yes)
 MINGW32_NATIVE := $(if $(and $(filter WIN,$(HOST_OS)),$(findstring i686,$(CC_TARGET_TRIPLE))),yes)
@@ -910,10 +943,12 @@ LINUX_I686_CC ?= $(if $(LINUX_I686_NATIVE),$(CC),$(LINUX_I686_PREFIX)-gcc)
 LINUX_X86_64_CC ?= $(if $(LINUX_X86_64_NATIVE),$(CC),$(LINUX_X86_64_PREFIX)-gcc)
 LINUX_AARCH64_CC ?= $(if $(LINUX_AARCH64_NATIVE),$(CC),$(LINUX_AARCH64_PREFIX)-gcc)
 LINUX_RISCV64_CC ?= $(if $(LINUX_RISCV64_NATIVE),$(CC),$(LINUX_RISCV64_PREFIX)-gcc)
+LINUX_PPC_CC ?= $(if $(LINUX_PPC_NATIVE),$(CC),$(LINUX_PPC_PREFIX)-gcc)
 LINUX_I686_PKG_CONFIG ?= $(if $(LINUX_I686_NATIVE),pkg-config,$(LINUX_I686_PREFIX)-pkg-config)
 LINUX_X86_64_PKG_CONFIG ?= $(if $(LINUX_X86_64_NATIVE),pkg-config,$(LINUX_X86_64_PREFIX)-pkg-config)
 LINUX_AARCH64_PKG_CONFIG ?= $(if $(LINUX_AARCH64_NATIVE),pkg-config,$(LINUX_AARCH64_PREFIX)-pkg-config)
 LINUX_RISCV64_PKG_CONFIG ?= $(if $(LINUX_RISCV64_NATIVE),pkg-config,$(LINUX_RISCV64_PREFIX)-pkg-config)
+LINUX_PPC_PKG_CONFIG ?= $(if $(LINUX_PPC_NATIVE),pkg-config,$(LINUX_PPC_PREFIX)-pkg-config)
 
 FREEBSD_X86_64_CC ?= $(if $(FREEBSD_X86_64_NATIVE),$(CC),$(FREEBSD_X86_64_PREFIX)-gcc)
 FREEBSD_AARCH64_CC ?= $(if $(FREEBSD_AARCH64_NATIVE),$(CC),$(FREEBSD_AARCH64_PREFIX)-gcc)
@@ -932,7 +967,7 @@ MINGWARM64_PKG_CONFIG ?= $(if $(MINGWARM64_NATIVE),pkg-config,$(MINGWARM64_PREFI
 MINGWARM64_WINDRES ?= $(if $(MINGWARM64_NATIVE),windres,$(MINGWARM64_PREFIX)-windres)
 
 .PHONY: linux_pi4
-.PHONY: linux_i686 linux_x86_64 linux_aarch64 linux_riscv64
+.PHONY: linux_i686 linux_x86_64 linux_aarch64 linux_riscv64 linux_ppc
 .PHONY: macos_aarch64 macos_x86_64
 .PHONY: freebsd_aarch64 freebsd_x86_64 freebsd_rpi4
 .PHONY: win_i686 win_x86_64 win_aarch64 help win32 win64
@@ -960,6 +995,12 @@ linux_riscv64:
 	$(MAKE) ARCH=LINUX BITS=64 CPU=riscv64 \
 	  CC=$(LINUX_RISCV64_CC) CC_TARGET=$(LINUX_RISCV64_CC) \
 	  PKG_CONFIG=$(LINUX_RISCV64_PKG_CONFIG) all
+
+linux_ppc:
+	$(call need_tool,$(LINUX_PPC_CC),a 32-bit PowerPC Linux C compiler)
+	$(MAKE) ARCH=LINUX BITS=32 CPU=ppc \
+	  CC=$(LINUX_PPC_CC) CC_TARGET=$(LINUX_PPC_CC) \
+	  PKG_CONFIG=$(LINUX_PPC_PKG_CONFIG) all
 
 linux_pi4:
 	$(call need_tool,$(LINUX_AARCH64_CC),an aarch64 Linux C compiler)
@@ -1024,6 +1065,7 @@ help:
 	@echo '  linux_x86_64   64-bit x86 Linux'
 	@echo '  linux_aarch64  64-bit ARM Linux'
 	@echo '  linux_riscv64  64-bit RISC-V Linux'
+	@echo '  linux_ppc      32-bit PowerPC Linux (Yellow Dog, G3/G4/G5/PS3)'
 	@echo '  linux_pi4      the same, tuned for a Raspberry Pi 4 Cortex-A72'
 	@echo '  macos_aarch64  Apple Silicon macOS'
 	@echo '  macos_x86_64   Intel macOS'

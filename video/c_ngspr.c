@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "../endmem.h"
 #include "../types.h"
 
 zreg NGSAX;
@@ -204,7 +205,7 @@ static void spr_loop(regs* const r, u2* edi, u2 const* const pal,
     if (win != 0) {
         NGNumSpr = count;
     }
-    if (sprleftpr_b[y] & 0x80000000u) {
+    if (sprleftpr_b[y] & SPRLEFT_SINGLE) {
         /* .drawsingle: one sprite's worth of pixels, walked backwards, with no
            priority mask to consult or set. */
         zreg edx = sprtbng[y] + (zreg)count * sizeof(SpriteInfo)

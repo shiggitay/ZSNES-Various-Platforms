@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 
 enum { R_EDI,
     R_ESI,
@@ -56,13 +57,11 @@ void c_ng_drawtileng16x162b16b(zreg* r);
 void c_ng_drawtileng16x164b16b(zreg* r);
 void c_ng_drawtileng16x168b16b(zreg* r);
 
-/* A dword read of a word table, which is what the assembly does. */
+/* A dword read of a word table, which is what the assembly does: this entry
+   in the low half and the next one in the high half, as x86 saw it. */
 static u4 dword_at(u2 const* const p)
 {
-    u4 v;
-
-    memcpy(&v, p, 4);
-    return v;
+    return p[0] | (u4)p[1] << 16;
 }
 
 /* ProcessBuildWindow. Leaves every register alone - the assembly pushes eax
@@ -77,7 +76,7 @@ static void build_window(zreg const* const r, u4 const bg)
     if (!(winbgenval_run[bx + bg * 256u] & 0x0Au))
         return;
 
-    *(u1*)&nglogicval = (u1)((winlogicaval[bx * 2u] >> (bg * 2u)) & 3u);
+    LE_BYTE(nglogicval, 0) = (u1)((winlogicaval[bx * 2u] >> (bg * 2u)) & 3u);
     BuildWindow(bx, bx + bg * 256u);
 
     /* (edi - esi) / 2: the pixels already behind the cursor. */
@@ -163,7 +162,7 @@ static void bg_tile_pr1(zreg* const r, u4 const bg, int const big)
 
     bgtxadd = (bgtxadd & 0xFFFF0000u) | bgtxad[i];
     ngptrdat2 = ngptrdat[i];
-    memcpy(&edx, (u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg, 4);
+    edx = ld32le((u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg);
     bg_finish(r, bg, big, edx, ngceax[i], ngcedi[i], cpalval[bx]);
 }
 
@@ -210,7 +209,7 @@ static void bg_tile(zreg* const r, u4 const bg, int const big)
     /* A dword read at colormodedef + mode*4 + bg, so edx keeps the three
        neighbouring layers' depths in its upper bytes - and `mov dl,1<<n`
        later replaces only the low one, which is what reaches the renderer. */
-    memcpy(&edx, (u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg, 4);
+    edx = ld32le((u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg);
     depth = (u1)edx;
     /* A leftward pixel offset, added to esi below: sign-extend it to the slot
        width so the add wraps, as it did when the slot was 32 bits. */
@@ -547,7 +546,7 @@ static void bg_line(zreg* const r, u4 const bg)
     edi &= (big || kind == LK_HR) ? 0xFu : 7u;
     if (kind == LK_HR)
         edi >>= 1;
-    memcpy(&edx, (u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg, 4);
+    edx = ld32le((u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg);
     /* A leftward pixel offset, added to esi below: sign-extend it to the slot
        width so the add wraps, as it did when the slot was 32 bits. */
     edi = (zreg)(s4)(-(s4)edi * 2);
@@ -625,7 +624,7 @@ static void line_pr1_finish(zreg* const r, u4 const bg, int const kind,
        leaves these behind - as the assembly does. */
     bgtxadd = (bgtxadd & 0xFFFF0000u) | bgtxad[i];
     ngptrdat2 = ngptrdat[i];
-    memcpy(&edx, (u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg, 4);
+    edx = ld32le((u1 const*)colormodedef + (BGMA[bx] & 7u) * 4u + bg);
     if (kind == LK_OM) {
         ofsmmptr = ngceax[i];
         ofshvaladd = 0;

@@ -103,10 +103,10 @@ extern void RTC2801w(void);
 extern void dbstop(void);
 
 extern u1 IRAM[2049] ASM_ALIGNED(4); // 2 kbytes of iram
-extern u1 SA1ARC[4];
+extern u4 SA1ARC; /* bytes through LE_BYTE: 0 the mode, 1 the busy flag */
 extern u1 SA1Control; // Don't execute if b5 or 6 are set
 extern u1 SA1DMAInfo;
-extern u1 SA1IRQData[4];
+extern u4 SA1IRQData; /* bytes through LE_BYTE */
 extern u1 SA1IRQEnable;
 extern u1 SA1RegP;
 extern u1 SA1_BRF[16];

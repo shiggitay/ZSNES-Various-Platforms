@@ -1,3 +1,5 @@
+#include "../unaligned.h"
+
 #ifdef __UNIXSDL__
 #include "../gblhdr.h"
 #else
@@ -284,7 +286,7 @@ void C4Op0D(void)
     C41FXVal = (short)(((double)C41FXVal * tanval) * 0.98);
 }
 
-#define READ_WORD(s) (*(unsigned short*)(s))
+#define READ_WORD(s) ld16le(s) /* C4 RAM, little-endian */
 void C4Op22(void)
 {
     short angle1 = READ_WORD(C4Ram + 0x1f8c) & 0x1ff;

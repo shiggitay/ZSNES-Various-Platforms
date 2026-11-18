@@ -10,21 +10,19 @@
 
 #include <string.h>
 
+#include "../unaligned.h"
+
 /* The 65816 PC is an arbitrary byte address, so operand loads are unaligned
-   and would fault on a strict-alignment target. memcpy compiles to the same
-   instruction wherever the direct load was legal. */
+   and would fault on a strict-alignment target, and the operands are
+   little-endian whatever the host is. */
 static inline u2 rd16(zreg const p)
 {
-    u2 v;
-    memcpy(&v, (void const*)(uintptr_t)p, sizeof v);
-    return v;
+    return ld16le((void const*)(uintptr_t)p);
 }
 
 static inline u4 rd32(zreg const p)
 {
-    u4 v;
-    memcpy(&v, (void const*)(uintptr_t)p, sizeof v);
-    return v;
+    return ld32le((void const*)(uintptr_t)p);
 }
 
 /*

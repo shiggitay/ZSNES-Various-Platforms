@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "c_mv16tbt.h"
 #include "makevid.h"
 
@@ -48,7 +49,7 @@ static void tiles(bt_regs* const r, u4 const hofs, u1* esi, int const winon_)
     do {
         u1 dh;
 
-        eax = (eax & 0xFFFF0000u) | *edi;
+        eax = (eax & 0xFFFF0000u) | ld16le(edi);
         /* dh is taken before the increment below, so it is the attribute of
            the word as read even when adding 1 carries into it. */
         dh = (u1)(eax >> 8);

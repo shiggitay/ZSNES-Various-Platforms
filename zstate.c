@@ -1,5 +1,7 @@
 #include "types.h" /* IGNORE_RESULT */
 
+#include "unaligned.h"
+
 #ifdef __UNIXSDL__
 #include "gblhdr.h"
 #else
@@ -2065,7 +2067,7 @@ void savespcdata(void)
             strcpy((char*)ssdatst, "SNES-SPC700 Sound File Data v0.30"); // 00000h - File Header : SNES-SPC700 Sound File Data v0.00
             ssdatst[0x21] = ssdatst[0x22] = ssdatst[0x23] = 0x1a; // 00021h - 0x1a,0x1a,0x1a
             ssdatst[0x24] = 10; // 00024h - 10
-            *(uint16_t*)(ssdatst + 0x25) = spcPCRam - SPCRAM; // 00025h - PC Register value (1 Word)
+            st16le(ssdatst + 0x25, (uint16_t)(spcPCRam - SPCRAM)); // 00025h - PC Register value (1 Word)
             ssdatst[0x27] = spcA; // 00027h - A Register Value (1 byte)
             ssdatst[0x28] = spcX; // 00028h - X Register Value (1 byte)
             ssdatst[0x29] = spcY; // 00029h - Y Register Value (1 byte)

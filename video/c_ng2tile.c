@@ -177,7 +177,7 @@ static void draw_half(depth const* const d, u4 const idx, u4 const edx,
 {
     u1 const dl = (u1)edx;
     u1 const* src;
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     int const flipy = (tile & 0x8000u) != 0;
     u4 k;
@@ -255,7 +255,7 @@ static void drawtile_line(zreg* const r, int const f, depth const* const d)
     tleftn = 33;
     for (;;) {
         u4 ecx = (r[R_ECX] & 0xFFFF0000u)
-            | ld16u(vrama + r[R_EAX]);
+            | ld16le(vrama + r[R_EAX]);
         ecx ^= ng16bprval;
         r[R_ECX] = ecx;
         if (!(ecx & 0x2000u))
@@ -298,7 +298,7 @@ static void l_pix(u1* const edi, u1 const* const src, u4 const i, u4 const ofs,
 static void line_half(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f)
 {
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     u2 const* const pal = (u2 const*)(uintptr_t)CPalPtrng;
     u1 const* src;
     u4 i;
@@ -348,7 +348,7 @@ static u4 drawline_line(zreg* const r, int const f, depth const* const d)
     tleftn = 33;
     for (;;) {
         u4 const ecx = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
 
         r[R_ECX] = ecx;
@@ -369,7 +369,7 @@ static u4 drawline_line(zreg* const r, int const f, depth const* const d)
 static void tile_body_16x16(zreg* const r, int const f, depth const* const d)
 {
     u4 const eax = r[R_EAX];
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     u2 const* const pal = (u2 const*)(uintptr_t)r[R_EBP];
     u1* edi = (u1*)(uintptr_t)r[R_EDI];
@@ -421,7 +421,7 @@ static void drawtile_line_16x16(zreg* const r, int const f, depth const* const d
     tleftn = 17;
     for (;;) {
         u4 const ecx = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
 
         r[R_ECX] = ecx;
@@ -591,7 +591,7 @@ static void draw_half_win(depth const* const d, u4 const idx, u4 const edx,
 {
     u1 const dl = (u1)edx;
     u1 const* src;
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int part, col;
 
     if (needs_cache(d, idx)) {
@@ -652,7 +652,7 @@ static void tile_body_win(zreg* const r, int const f, depth const* const d)
 static void tile_body_win_16x16(zreg* const r, int const f, depth const* const d)
 {
     u4 const eax = r[R_EAX];
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     u2 const* const pal = (u2 const*)(uintptr_t)r[R_EBP];
     u1* edi = (u1*)(uintptr_t)r[R_EDI];
@@ -704,7 +704,7 @@ static int straddle(zreg* const r, wleaf const* const lf, depth const* const d)
     u4* const run = ngcwinptr;
 
     ngcpixleft = *run;
-    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16u(vrama + r[R_EAX]))
+    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16le(vrama + r[R_EAX]))
         ^ ng16bprval;
     if (!(r[R_ECX] & 0x2000u))
         tile_body_win(r, lf->win, d);
@@ -738,7 +738,7 @@ static u4 drawtile_line_win(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 8u) {
             if (straddle(r, lf, d))
@@ -786,7 +786,7 @@ static void drawtile_line_win2(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 8u) {
             if (straddle(r, lf, d))
@@ -813,7 +813,7 @@ static int straddle_16x16(zreg* const r, wleaf const* const lf,
     u4* const run = ngcwinptr;
 
     ngcpixleft = *run;
-    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16u(vrama + r[R_EAX]))
+    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16le(vrama + r[R_EAX]))
         ^ ng16bprval;
     if (!(r[R_ECX] & 0x2000u)) {
         tile_body_win_16x16(r, lf->win, d);
@@ -847,7 +847,7 @@ static u4 drawtile_line_win_16x16(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 16u) {
             if (straddle_16x16(r, lf, d))
@@ -894,7 +894,7 @@ static void drawtile_line_win2_16x16(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 16u) {
             if (straddle_16x16(r, lf, d))
@@ -1014,7 +1014,7 @@ static void l_pair(u1* const edi, u1 const* const src, u4 const lo,
 static void line_half_full(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f)
 {
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     u2 const* const pal = (u2 const*)(uintptr_t)CPalPtrng;
     int const flipx = (tile & 0x4000u) != 0;
     u1 const* src;
@@ -1039,7 +1039,7 @@ static void line_half_full(depth const* const d, u4 const idx, u1 const dl,
 static void line_body_16x16(zreg* const r, int const f, depth const* const d)
 {
     u4 const eax = r[R_EAX];
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     u1* edi = (u1*)(uintptr_t)r[R_EDI];
     u4 ecx = r[R_ECX], edx;
@@ -1080,7 +1080,7 @@ static u4 drawline_line_16x16(zreg* const r, int const f, depth const* const d)
     tleftn = 17;
     for (;;) {
         u4 const ecx = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
 
         r[R_ECX] = ecx;
@@ -1116,7 +1116,7 @@ static void l_write(u1* const edi, u1 const* const src, u4 const i,
 static void line_half_16x8(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f, int const hires)
 {
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     u2 const* const pal = (u2 const*)(uintptr_t)CPalPtrng;
     int const flipx = (tile & 0x4000u) != 0;
     u1 const* src;
@@ -1151,7 +1151,7 @@ static void line_body_16x8(zreg* const r, int const f, depth const* const d,
     int const hires)
 {
     u4 const eax = r[R_EAX];
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     u1* edi = (u1*)(uintptr_t)r[R_EDI];
     u4 ecx = r[R_ECX], edx;
@@ -1213,7 +1213,7 @@ static u4 drawline_line_16x8(zreg* const r, int const f, depth const* const d)
     tleftn = 33;
     for (;;) {
         u4 const ecx = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
 
         r[R_ECX] = ecx;
@@ -1268,8 +1268,8 @@ static void om_advance(zreg* const r, int const mode, int const opts)
     ecx = ofsmval;
     ofshvaladd += 8u;
     {
-        u4 const v = (mode == 4) ? ld32u((void const*)(uintptr_t)(omp - 0x40u))
-                                 : ld32u((void const*)(uintptr_t)omp);
+        u4 const v = (mode == 4) ? ld32le((void const*)(uintptr_t)(omp - 0x40u))
+                                 : ld32le((void const*)(uintptr_t)omp);
         int const take = (mode == 4) ? ((v & 0x8000u) && (v & ecx))
                                      : ((v & ecx) != 0);
         if (take) {
@@ -1295,7 +1295,7 @@ static void om_advance(zreg* const r, int const mode, int const opts)
         ofsmcptr = (u1*)(((uintptr_t)ofsmcptr & ~(uintptr_t)0xFFFFu)
             | (u2)((u2)(uintptr_t)ofsmcptr + (u2)bgtxadd2));
     {
-        u4 const v = ld32u((void const*)(uintptr_t)(omp - 0x40u));
+        u4 const v = ld32le((void const*)(uintptr_t)(omp - 0x40u));
 
         if (!(mode == 4 && (v & 0x8000u)) && (v & ecx)) {
             eax = (eax & 0xFFFF0000u)
@@ -1340,7 +1340,7 @@ static u4 drawline_line_om(zreg* const r, int const f, depth const* const d,
     tleftn = 33;
     for (;;) {
         u4 const ecx = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
 
         r[R_ECX] = ecx;
@@ -1387,8 +1387,8 @@ static void om_advance_16x16(zreg* const r, int const mode, int const opts)
     ecx = ofsmval;
     ofshvaladd += 8u;
     {
-        u4 const v = (mode == 4) ? ld32u((void const*)(uintptr_t)(omp - 0x40u))
-                                 : ld32u((void const*)(uintptr_t)omp);
+        u4 const v = (mode == 4) ? ld32le((void const*)(uintptr_t)(omp - 0x40u))
+                                 : ld32le((void const*)(uintptr_t)omp);
         int const take = (mode == 4) ? ((v & 0x8000u) && (v & ecx))
                                      : ((v & ecx) != 0);
         if (take) {
@@ -1425,7 +1425,7 @@ static void om_advance_16x16(zreg* const r, int const mode, int const opts)
         ofsmcptr = (u1*)(((uintptr_t)ofsmcptr & ~(uintptr_t)0xFFFFu)
             | (u2)((u2)(uintptr_t)ofsmcptr + (u2)bgtxadd2));
     {
-        u4 const v = ld32u((void const*)(uintptr_t)(omp - 0x40u));
+        u4 const v = ld32le((void const*)(uintptr_t)(omp - 0x40u));
 
         if (!(mode == 4 && (v & 0x8000u)) && (v & ecx)) {
             eax = (eax & 0xFFFF0000u)
@@ -1447,7 +1447,7 @@ static void line_body_om_16x16(zreg* const r, int const f, depth const* const d,
     int const win)
 {
     u4 const eax = r[R_EAX];
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     u4 ecx = r[R_ECX], edx;
 
@@ -1488,7 +1488,7 @@ static u4 drawline_line_om_16x16(zreg* const r, int const f,
     tleftn = 17;
     for (;;) {
         u4 const ecx = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
 
         r[R_ECX] = ecx;
@@ -1556,7 +1556,7 @@ static void l_pix_win(u1* const edi, u1 const* const src, u4 const i,
 static void line_half_win(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f)
 {
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     u2 const* const pal = (u2 const*)(uintptr_t)CPalPtrng;
     u1 const* src;
     u4 i;
@@ -1596,7 +1596,7 @@ static void line_body_win(zreg* const r, int const f, depth const* const d)
 static void line_body_win_16x16(zreg* const r, int const f, depth const* const d)
 {
     u4 const eax = r[R_EAX];
-    u4 const tile = ld16u(vrama + eax);
+    u4 const tile = ld16le(vrama + eax);
     int const flipx = (tile & 0x4000u) != 0;
     u1* edi = (u1*)(uintptr_t)r[R_EDI];
     u4 ecx = r[R_ECX], edx;
@@ -1641,7 +1641,7 @@ static int straddle_line(zreg* const r, wleaf const* const lf,
     u4* const run = ngcwinptr;
 
     ngcpixleft = *run;
-    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16u(vrama + r[R_EAX]))
+    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16le(vrama + r[R_EAX]))
         ^ ng16bprval;
     if (!(r[R_ECX] & 0x2000u))
         line_body_win(r, lf->win, d);
@@ -1671,7 +1671,7 @@ static u4 drawline_line_win(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 8u) {
             if (straddle_line(r, lf, d))
@@ -1715,7 +1715,7 @@ static u4 drawline_line_win2(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 8u) {
             if (straddle_line(r, lf, d))
@@ -1833,7 +1833,7 @@ static int straddle_line_16(zreg* const r, wleaf const* const lf,
     u4* const run = ngcwinptr;
 
     ngcpixleft = *run;
-    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16u(vrama + r[R_EAX]))
+    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16le(vrama + r[R_EAX]))
         ^ ng16bprval;
     if (!(r[R_ECX] & 0x2000u)) {
         line_body_win_16x16(r, lf->win, d);
@@ -1867,7 +1867,7 @@ static u4 drawline_line_win_16x16(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 16u) {
             if (straddle_line_16(r, lf, d))
@@ -2010,7 +2010,7 @@ static int straddle_om(zreg* const r, wleaf const* const lf,
     u4* const run = ngcwinptr;
 
     ngcpixleft = *run;
-    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16u(vrama + r[R_EAX]))
+    r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u) | ld16le(vrama + r[R_EAX]))
         ^ ng16bprval;
     if (!(r[R_ECX] & 0x2000u))
         line_body_win_om(r, lf->win, d);
@@ -2040,7 +2040,7 @@ static u4 drawline_line_win_om(zreg* const r, wleaf const* const lf,
 
     for (;;) {
         u4* const run = ngcwinptr;
-        u4 const tile = ld16u(vrama + r[R_EAX]);
+        u4 const tile = ld16le(vrama + r[R_EAX]);
 
         if (*run <= 8u) {
             if (straddle_om(r, lf, d, mode))
@@ -2150,7 +2150,7 @@ static u4 drawline_line_win_om_16x16(zreg* const r, wleaf const* const lf,
         if (*run <= 8u) { /* straddles a window boundary */
             ngcpixleft = *run;
             r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u)
-                           | ld16u(vrama + r[R_EAX]))
+                           | ld16le(vrama + r[R_EAX]))
                 ^ ng16bprval;
             if (!(r[R_ECX] & 0x2000u))
                 line_body_om_16x16(r, lf->win, d, 1);
@@ -2176,7 +2176,7 @@ static u4 drawline_line_win_om_16x16(zreg* const r, wleaf const* const lf,
         }
 
         r[R_ECX] = ((r[R_ECX] & 0xFFFF0000u)
-                       | ld16u(vrama + r[R_EAX]))
+                       | ld16le(vrama + r[R_EAX]))
             ^ ng16bprval;
         if (!(r[R_ECX] & 0x2000u))
             line_body_om_16x16(r, clip ? lf->clip : lf->vis, d, 0);

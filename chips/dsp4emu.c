@@ -1,4 +1,5 @@
 #include "dsp4emu.h"
+#include "../unaligned.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -8,10 +9,10 @@
    1.15.00 * 1.15.00 = 2.30.00 -> 1.30.00 (DSP) -> 1.31.00 (LSB is 0)
    1.15.00 * 1.00.15 = 2.15.15 -> 1.15.15 (DSP) -> 1.15.16 (LSB is 0) */
 
-#define READ_WORD(s) (*(uint16_t*)(s))
-#define READ_DWORD(s) (*(uint32_t*)(s))
-#define WRITE_WORD(s, d) (*(uint16_t*)(s)) = (d)
-#define WRITE_DWORD(s, d) (*(uint32_t*)(s)) = (d)
+#define READ_WORD(s) ld16le(s)
+#define READ_DWORD(s) ld32le(s)
+#define WRITE_WORD(s, d) st16le((s), (d))
+#define WRITE_DWORD(s, d) st32le((s), (d))
 
 struct DSP4_t DSP4;
 struct DSP4_vars_t DSP4_vars;

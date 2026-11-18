@@ -63,15 +63,26 @@ extern void regINVALID(void);
 typedef struct DMAInfo {
     u1 control; // Control register
     u1 destination; // Lower byte of destination register address, expanded to 0x21xx
-    u2 offset; // Source address offset
+    u1 offset_[2]; // Source address offset
     u1 bank; // Source address bank
-    u2 count; // # of bytes to transfer
+    u1 count_[2]; // # of bytes to transfer
     u1 hdma_bank; // HDMA indirect address bank
-    u2 hdma_table; // HDMA table address
+    u1 hdma_table_[2]; // HDMA table address
     u1 hdma_line_counter; // HDMA line counter
     u1 unknown; // Unknown, 0x43xB and 0x43xF are aliases
     u1 padding[4];
 } __attribute__((packed)) DMAInfo;
+/* The 16-bit fields are the $43xx registers exactly as the 65816 wrote them,
+   low byte first, so they are kept as bytes and read through these rather
+   than as host words, which would swap them on a big-endian host. */
+static inline u2 dma_get16(u1 const* const f) { return (u2)(f[0] | f[1] << 8); }
+static inline void dma_set16(u1* const f, u2 const v)
+{
+    f[0] = (u1)v;
+    f[1] = (u1)(v >> 8);
+}
+#define DMA_GET(esi, field) dma_get16((esi)->field##_)
+#define DMA_SET(esi, field, v) dma_set16((esi)->field##_, (u2)(v))
 _Static_assert(sizeof(DMAInfo) == 16, "DMAInfo size mismatch");
 
 /* The reservation is 129 raw bytes (cpu/c_regsdata.c) and the $43xx

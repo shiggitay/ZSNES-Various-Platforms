@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "newgfx.h"
 
 /* Declared here rather than pulled in from vcache.h. */
@@ -23,6 +24,13 @@ extern u4 bg1ptrx[4] ASM_ALIGNED(4), bg1ptry[4] ASM_ALIGNED(4);
 extern u2 bg3ptr, bg3scrolx, bg3scroly;
 extern u2 curypos;
 extern u1 bg1ptr_b[10], bg1scrolx_b[10];
+
+/* Two consecutive halfword registers as one dword, the first in the low half
+   as x86's dword load had them. Each is a host u2 in its own aligned slot. */
+static inline u4 halfpair(u1 const* const p)
+{
+    return ld16u(p) | (u4)ld16u(p + 2) << 16;
+}
 extern u2 vidmemch4[2048];
 extern u4 yadder, yrevadder;
 
@@ -64,7 +72,7 @@ static void offs_init(u4 const ebp, u1 const* const edi)
     /* A dword read of a word array: the next layer's pointer rides in the top
        half and reaches ofsmtptr with it. bg1ptr_b names those bytes plus the
        two that follow the last layer, so the read stays in one object. */
-    memcpy(&eax, bg1ptr_b + ebp * 2u, 4);
+    eax = halfpair(bg1ptr_b + ebp * 2u);
     ofsmtptr = eax;
     ofsmtptrs = eax;
     if (ecx & 0x0100u) {
@@ -74,7 +82,7 @@ static void offs_init(u4 const ebp, u1 const* const edi)
     eax += ecx;
     yposngom = yadder;
     flipyposngom = yrevadder;
-    memcpy(&ecx, bg1scrolx_b + ebp * 2u, 4);
+    ecx = halfpair(bg1scrolx_b + ebp * 2u);
     edx = bg1ptrx[ebp];
     if (ecx & 0x0100u) {
         eax += edx;
@@ -120,8 +128,8 @@ static u1* offs_proc(void)
     /* The vertical offset for this column. */
     ebx = (uintptr_t)ofsmcptr + ofsmcptr2;
     eax = OMBGTestVal;
-    if (*(u4 const*)(uintptr_t)ebx & eax) {
-        ebx = *(u4 const*)(uintptr_t)ebx;
+    if (ld32le((u1 const*)(uintptr_t)ebx) & eax) { /* the map is in VRAM */
+        ebx = ld32le((u1 const*)(uintptr_t)ebx);
         eax = (eax & 0xFFFF0000u) | (u2)ofsmtptr;
         ebx &= 0x03FFu;
         ebx += ofsmcyps;
@@ -143,9 +151,9 @@ static u1* offs_proc(void)
     ofshvaladd += 8;
     eax = OMBGTestVal;
     ofsmcptr2 = (ofsmcptr2 + 2u) & 0x3Fu;
-    if (*(u4 const*)(uintptr_t)(ebx - 0x40u) & eax) {
+    if (ld32le((u1 const*)(uintptr_t)(ebx - 0x40u)) & eax) {
         eax = (u4)(uintptr_t)edi - (u4)(uintptr_t)vram;
-        ebx = *(u4 const*)(uintptr_t)(ebx - 0x40u);
+        ebx = ld32le((u1 const*)(uintptr_t)(ebx - 0x40u));
         eax = (eax & 0xFFFF0000u) | (u2)(eax - ofsmtptr);
         eax = (eax & 0xFFFF0000u) | (u2)(eax + ofsmtptrs);
         ebx += ofshvaladd;

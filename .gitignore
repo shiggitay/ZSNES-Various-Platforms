@@ -26,3 +26,5 @@ zmovie.cfg
 zsnes
 zsnes.exe
 zsnesl.cfg
+build-ydl/
+build-ydl-sysroot/

@@ -3,6 +3,7 @@
 #include "../endmem.h"
 #include "../init.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "c_sa1regs.h"
 #include "sa1proc.h"
 #include "sa1regs.h"
@@ -27,7 +28,7 @@ void SA1Reset(void)
     memset(SA1_BRF, 0, sizeof(SA1_BRF));
     SA1_in_cc1_dma = 0;
     SA1_CC2_line = 0;
-    SA1IRQData[1] = 0;
+    LE_BYTE(SA1IRQData, 1) = 0;
     SA1Mode = SA1Mode & 0xFFFFFF00;
     SA1Status = 0;
     SA1Control = 0x20;
@@ -55,11 +56,11 @@ void SA1Reset(void)
 
 void UpdateArithStuff(void)
 {
-    if (SA1ARC[1] != 1)
+    if (LE_BYTE(SA1ARC, 1) != 1)
         return;
 
-    SA1ARC[1] = 0;
-    if (SA1ARC[0] & 0x02) { // Cumultative sum
+    LE_BYTE(SA1ARC, 1) = 0;
+    if (LE_BYTE(SA1ARC, 0) & 0x02) { // Cumultative sum
         s4 const product = (s2)SA1AR1 * (s2)SA1AR2;
         s8 const sum = ((s8)((u8)SA1ARR2 << 32 | (u8)SA1ARR1) << 24 >> 24) + product;
         s8 const sign = sum >> 39;
@@ -67,7 +68,7 @@ void UpdateArithStuff(void)
         SA1ARR2 = sum >> 32 & 0x000000FF;
         // Set overflow bit if sum exceeds 40bits.
         SA1Overflow = sign != 0 && sign != -1 ? 0x80 : 0x00;
-    } else if (SA1ARC[0] & 0x01) { // Divison
+    } else if (LE_BYTE(SA1ARC, 0) & 0x01) { // Divison
         s2 const dividend = SA1AR1;
         u2 const divisor = SA1AR2;
         if (divisor != 0) {

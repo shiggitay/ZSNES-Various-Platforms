@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "makevid.h"
 
 zreg SPPAX;
@@ -77,7 +78,7 @@ static void spr_pixel(regs* const r, u4 const eax, u1 const cl, u1 const ch,
     } else if (mode == W_HALF) {
         u4 col = pal16b[r->ax];
 
-        r->dx = *(u4 const*)(TRANSP + idx);
+        r->dx = ld16pair(TRANSP + idx);
         /* A transparent pixel underneath means there is nothing to average
            with, so the sprite colour goes down unchanged. */
         if ((u2)r->dx != 0) {
@@ -93,13 +94,13 @@ static void spr_pixel(regs* const r, u4 const eax, u1 const cl, u1 const ch,
            the transparency buffer needs masking; the pair then goes through
            fulladdtab, read as a dword from a table of words. */
         u4 const* const pal = mode == W_ADD ? pal16bcl : pal16bxcl;
-        u4 t = *(u4 const*)(TRANSP + idx);
+        u4 t = ld16pair(TRANSP + idx);
 
         t &= vesa2_clbit;
         t += pal[r->ax];
         t >>= 1;
         r->ax = 0;
-        memcpy(&t, fulladdtab + t, 4);
+        t = ld16pair(fulladdtab + t);
         if (mode == W_SUB) {
             t ^= 0xFFFFu;
         }

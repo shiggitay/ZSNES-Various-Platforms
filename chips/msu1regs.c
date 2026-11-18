@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 
+#include "../unaligned.h"
 #include "regabi.h"
 
 #define MSU_STATUS_DATA_BUSY 0x80
@@ -56,13 +57,13 @@ uint8_t c_msuid4(void) { return 'S'; }
 uint8_t c_msuid5(void) { return 'U'; }
 uint8_t c_msuid6(void) { return '1'; }
 
-void c_msudataseek0(uint8_t val) { ((uint8_t*)&MSU_Data_SeekPort)[0] = val; }
-void c_msudataseek1(uint8_t val) { ((uint8_t*)&MSU_Data_SeekPort)[1] = val; }
-void c_msudataseek2(uint8_t val) { ((uint8_t*)&MSU_Data_SeekPort)[2] = val; }
+void c_msudataseek0(uint8_t val) { LE_BYTE(MSU_Data_SeekPort, 0) = val; }
+void c_msudataseek1(uint8_t val) { LE_BYTE(MSU_Data_SeekPort, 1) = val; }
+void c_msudataseek2(uint8_t val) { LE_BYTE(MSU_Data_SeekPort, 2) = val; }
 void c_msudataseek3(uint8_t val)
 {
     // Writing to $2003 triggers seek
-    ((uint8_t*)&MSU_Data_SeekPort)[3] = val;
+    LE_BYTE(MSU_Data_SeekPort, 3) = val;
     // Writes have no effect if data busy bit set
     if (!(MSU_StatusRead & MSU_STATUS_DATA_BUSY)) {
         MSU_StatusRead |= MSU_STATUS_DATA_BUSY; // Start seek, set data busy bit
@@ -73,12 +74,12 @@ void c_msudataseek3(uint8_t val)
 
 void c_msu1track0(uint8_t val)
 {
-    ((uint8_t*)&MSU_Track)[0] = val;
+    LE_BYTE(MSU_Track, 0) = val;
 }
 
 void c_msu1track1(uint8_t val)
 {
-    ((uint8_t*)&MSU_Track)[1] = val;
+    LE_BYTE(MSU_Track, 1) = val;
     MSU1HandleTrackChange();
 }
 

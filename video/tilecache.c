@@ -7,6 +7,7 @@
 #include "../gblvars.h"
 #include "../types.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "../vcache.h"
 #include "makevid.h"
 
@@ -57,7 +58,7 @@ static void cache_tiles(u4 const eax, int const bpp, bool const tile16)
     int nextar = 1;
 
     for (;;) {
-        u2 const entry = *(u2 const*)(vram + addr);
+        u2 const entry = ld16le(vram + addr); /* tilemap entry, low byte first */
         u4 const esi = ((entry & 0x3FF) + nbg) & 0xFFFF;
         u4 const m0 = (esi << preshift) & 0xFFF;
 

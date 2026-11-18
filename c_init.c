@@ -24,6 +24,7 @@
 #include "input.h"
 #include "link.h"
 #include "ui.h"
+#include "unaligned.h"
 #include "video/c_mode716.h"
 #include "video/procvid.h"
 #include "zmovie.h"
@@ -511,7 +512,7 @@ void ReadInputDevice(void)
         JoyBOrig = j;
     } else if (device2 == 3) {
         processmouse2();
-        if (*(u4*)(romdata + 0x1000) == 0xAD20C203) {
+        if (ld32le(romdata + 0x1000) == 0xAD20C203) {
             u1* eax = wramdata;
             if (eax[0] != 26) {
                 eax[0x040A] = mousexloc;

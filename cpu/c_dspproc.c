@@ -241,7 +241,7 @@ static u2 const CubicSpline[] = {
 static s4 DSPInterpolate_4(u4 const edx, u4 const ebp)
 {
     u4 const ebx = BRRPlace0[ebp][0] >> 16 & 0xFF;
-    u4 const eax = ld32u((u1 const*)&BRRPlace0[ebp][0] + 3);
+    u4 const eax = BRRPlace0[ebp][0] >> 24 | BRRPlace0[ebp][1] << 8;
     s4 ecx = (s4)(s2)PSampleBuf[ebp][edx + 2] * (s4)DSPInterP[ebx + 256 * 3] + (s4)(s2)PSampleBuf[ebp][eax + 3] * (s2)DSPInterP[ebx + 256 * 2] + (s4)(s2)PSampleBuf[ebp][eax + 4] * (s2)DSPInterP[ebx + 256 * 1] + (s4)(s2)PSampleBuf[ebp][eax + 5] * (s2)DSPInterP[ebx + 256 * 0];
 
     ecx >>= 11;
@@ -394,7 +394,7 @@ void VoiceStart(u4 const voice)
     }
     Voice0Status[voice] = 0;
 
-    if (DSPMem[16 * voice] < 0x40 && DSPMem[16 * voice + 1] < 0x40 && ld32u(&DSPMem[16 * voice + 4]) == 0x0050FF07 && DSPMem[0x5D] == 6) { // Skip.
+    if (DSPMem[16 * voice] < 0x40 && DSPMem[16 * voice + 1] < 0x40 && ld32le(&DSPMem[16 * voice + 4]) == 0x0050FF07 && DSPMem[0x5D] == 6) { // Skip.
         DSPMem[16 * voice] = 15;
         DSPMem[16 * voice + 1] = 15;
         return;
@@ -497,7 +497,7 @@ void VoiceStart(u4 const voice)
         Voice0IncNumber[voice] = -(eax / 128);
         Voice0State[voice] = 210;
     } else {
-        u2 const ax = ld16u(&DSPMem[16 * voice + 2]);
+        u2 const ax = ld16le(&DSPMem[16 * voice + 2]);
         if (Voice0Pitch[voice] != ax) { // Pitchc.
             Voice0Pitch[voice] = ax;
             Voice0Freq[voice] = (u8)(ax & 0x3FFF) * dspPAdj >> 8;
@@ -515,9 +515,9 @@ void VoiceStart(u4 const voice)
         echoon0[voice] = (DSPMem[0x4D] & 1U << voice) != 0; // Echo.
     }
 
-    u2 const ax = (DSPMem[0x5D] * 64 + (ld32u(&DSPMem[16 * voice + 4]) & 0x000000FF)) * 4;
-    Voice0Ptr[voice] = ld16u(&SPCRAM[ax]);
-    Voice0LoopPtr[voice] = ld16u(&SPCRAM[ax + 2]);
+    u2 const ax = (DSPMem[0x5D] * 64 + DSPMem[16 * voice + 4]) * 4;
+    Voice0Ptr[voice] = ld16le(&SPCRAM[ax]);
+    Voice0LoopPtr[voice] = ld16le(&SPCRAM[ax + 2]);
 }
 
 void VoiceStarter(u1 const voice)
@@ -529,10 +529,10 @@ void VoiceStarter(u1 const voice)
 
     SoundLooped0[voice] = 0;
     echoon0[voice] = (DSPMem[0x4D] & 1 << voice) != 0; // Echo.
-    u2 const ax = (DSPMem[0x5D] * 64 + (ld32u(&DSPMem[16 * voice + 4]) & 0x000000FF)) * 4;
-    Voice0Ptr[voice] = ld16u(&SPCRAM[ax]);
-    Voice0LoopPtr[voice] = ld16u(&SPCRAM[ax + 2]);
-    u2 const pitch = ld16u(&DSPMem[16 * voice + 2]);
+    u2 const ax = (DSPMem[0x5D] * 64 + DSPMem[16 * voice + 4]) * 4;
+    Voice0Ptr[voice] = ld16le(&SPCRAM[ax]);
+    Voice0LoopPtr[voice] = ld16le(&SPCRAM[ax + 2]);
+    u2 const pitch = ld16le(&DSPMem[16 * voice + 2]);
     if (Voice0Pitch[voice] != pitch) { // Pitchc.
         Voice0Pitch[voice] = pitch;
         Voice0Freq[voice] = (u8)(pitch & 0x3FFF) * dspPAdj >> 8;
@@ -1251,7 +1251,7 @@ static void ProcessVoiceStuff(u4 const p1)
     };
 
     {
-        u2 const ax = ld16u(&DSPMem[16 * p1 + 2]);
+        u2 const ax = ld16le(&DSPMem[16 * p1 + 2]);
         if (Voice0Pitch[p1] != ax) { // Pitchc.
             Voice0Pitch[p1] = ax;
             // modpitch
@@ -1261,23 +1261,22 @@ static void ProcessVoiceStuff(u4 const p1)
 
     u4 esi = 0;
 
-SkipProcess2:
-    {
-        u1 const al = VolumeTableD[DSPMem[16 * p1 + 0]];
-        u1 const bl = VolumeTableD[DSPMem[16 * p1 + 1]];
-        Voice0VolumeRe[p1] = al;
-        Voice0VolumeLe[p1] = bl;
-        u1 ah = al;
-        u1 bh = bl;
-        if (ah & 0x80)
-            ah = -ah;
-        if (bh & 0x80)
-            bh = -bh;
-        ah = (u1)(ah + bh) >> 1;
-        if (al & 0x80 || bl & 0x80)
-            ah = -ah;
-        Voice0Volumee[p1] = ah;
-    }
+SkipProcess2: {
+    u1 const al = VolumeTableD[DSPMem[16 * p1 + 0]];
+    u1 const bl = VolumeTableD[DSPMem[16 * p1 + 1]];
+    Voice0VolumeRe[p1] = al;
+    Voice0VolumeLe[p1] = bl;
+    u1 ah = al;
+    u1 bh = bl;
+    if (ah & 0x80)
+        ah = -ah;
+    if (bh & 0x80)
+        bh = -bh;
+    ah = (u1)(ah + bh) >> 1;
+    if (al & 0x80 || bl & 0x80)
+        ah = -ah;
+    Voice0Volumee[p1] = ah;
+}
 
     {
         u2 const ax = GlobalVL << 8 | VolumeTableD[DSPMem[16 * p1 + 0]];

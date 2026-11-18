@@ -1,5 +1,7 @@
 // http://users.tpg.com.au/trauma/dsp/st010.html
 
+#include "../unaligned.h"
+
 #ifdef __UNIXSDL__
 #include "../gblhdr.h"
 #else
@@ -229,7 +231,8 @@ void ST010_SortDrivers(uint16_t Positions, uint16_t Places[32], uint16_t Drivers
     }
 }
 
-#define ST010_WORD(offset) (*((short*)(SRAM + offset)))
+/* The ST010 shares its RAM with the SNES, which keeps words low byte first. */
+#define ST010_WORD(offset) ((short)ld16le(SRAM + (offset)))
 // #define ST010_WORD(offset) (SRAM[offset + 1] << 8) | SRAM[offset]
 
 void ST010DoCommand(void)
@@ -248,13 +251,27 @@ void ST010DoCommand(void)
     case 0x01: {
         SRAM[0x0006] = SRAM[0x0002];
         SRAM[0x0007] = SRAM[0x0003];
-        ST010_OP01(*(short*)&SRAM[0x0000], *(short*)&SRAM[0x0002], (short*)SRAM, (short*)&SRAM[2], (short*)&SRAM[4], (short*)&SRAM[0x10]);
+        short x1, y1, quadrant, theta;
+        ST010_OP01(ST010_WORD(0x0000), ST010_WORD(0x0002), &x1, &y1, &quadrant, &theta);
+        st16le(SRAM + 0x0000, (uint16_t)x1);
+        st16le(SRAM + 0x0002, (uint16_t)y1);
+        st16le(SRAM + 0x0004, (uint16_t)quadrant);
+        st16le(SRAM + 0x0010, (uint16_t)theta);
     } break;
 
         // Sorts a bunch of values by weight
 
     case 0x02: {
-        ST010_SortDrivers(*(short*)&SRAM[0x0024], (uint16_t*)&SRAM[0x0040], (uint16_t*)&SRAM[0x0080]);
+        uint16_t places[32], drivers[32];
+        for (int i = 0; i < 32; i++) {
+            places[i] = ld16le(SRAM + 0x0040 + i * 2);
+            drivers[i] = ld16le(SRAM + 0x0080 + i * 2);
+        }
+        ST010_SortDrivers((uint16_t)ST010_WORD(0x0024), places, drivers);
+        for (int i = 0; i < 32; i++) {
+            st16le(SRAM + 0x0040 + i * 2, places[i]);
+            st16le(SRAM + 0x0080 + i * 2, drivers[i]);
+        }
     } break;
 
         /*
@@ -270,17 +287,20 @@ void ST010DoCommand(void)
     */
 
     case 0x03: {
-        ST010_Scale(*(short*)&SRAM[0x0004], *(short*)&SRAM[0x0000], *(short*)&SRAM[0x0002], (int*)&SRAM[0x10], (int*)&SRAM[0x14]);
+        int x1, y1;
+        ST010_Scale(ST010_WORD(0x0004), ST010_WORD(0x0000), ST010_WORD(0x0002), &x1, &y1);
+        st32le(SRAM + 0x10, (uint32_t)x1);
+        st32le(SRAM + 0x14, (uint32_t)y1);
     } break;
 
         // Calculate the vector length of (x,y)
 
     case 0x04: {
         int16_t square, x, y;
-        x = *((int16_t*)SRAM);
-        y = *((int16_t*)&SRAM[2]);
+        x = ST010_WORD(0x0000);
+        y = ST010_WORD(0x0002);
         square = (int16_t)sqrt((double)(y * y + x * x));
-        *((int16_t*)&SRAM[0x10]) = square;
+        st16le(SRAM + 0x10, (uint16_t)square);
         break;
     }
 
@@ -437,7 +457,9 @@ void ST010DoCommand(void)
     */
 
     case 0x06: {
-        ST010_Multiply(*(short*)&SRAM[0x0000], *(short*)&SRAM[0x0002], (int*)&SRAM[0x10]);
+        int product;
+        ST010_Multiply(ST010_WORD(0x0000), ST010_WORD(0x0002), &product);
+        st32le(SRAM + 0x10, (uint32_t)product);
     } break;
 
         /*
@@ -499,7 +521,10 @@ void ST010DoCommand(void)
     */
 
     case 0x08: {
-        ST010_Rotate(*(short*)&SRAM[0x0004], *(short*)&SRAM[0x0000], *(short*)&SRAM[0x0002], (short*)&SRAM[0x10], (short*)&SRAM[0x12]);
+        short x1, y1;
+        ST010_Rotate(ST010_WORD(0x0004), ST010_WORD(0x0000), ST010_WORD(0x0002), &x1, &y1);
+        st16le(SRAM + 0x10, (uint16_t)x1);
+        st16le(SRAM + 0x12, (uint16_t)y1);
     } break;
 
     default:

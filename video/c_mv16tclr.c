@@ -27,13 +27,13 @@ static void fulladd(u4 const eax, int const sub)
     u1* esi = curvidoffset;
 
     for (u4 n = 256; n != 0; n--) {
-        u4 ebx = ld32u(ebp);
+        u4 ebx = ld16pair(ebp);
 
         ebx &= vesa2_clbit;
         ebx >>= 1;
         ebx += eax;
         ebp += 2;
-        ebx = ld32u(fulladdtab + ebx);
+        ebx = ld16pair(fulladdtab + ebx);
         if (sub) {
             ebx ^= 0xFFFFu;
         }
@@ -90,7 +90,7 @@ void c_clearback16t(void)
 
     if ((scaddtype & 0x40u) && (scrnon >> 8) != 0) {
         for (u4 n = 128; n != 0; n--) {
-            u4 ebx = ld32u(ebp);
+            u4 ebx = ld16pair(ebp);
 
             if ((u2)ebx != 0) {
                 ebx = (ebx & ~0xFFFFu)

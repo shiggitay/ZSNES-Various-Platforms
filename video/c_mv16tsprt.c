@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "makevid.h"
 
 zreg SPTAX;
@@ -76,7 +77,7 @@ static void spr_t(regs* const r, u1 const* const src, u1 const ch,
         return;
     }
     if (mode == W_HALF) {
-        u4 t = *(u4 const*)(ebp - n);
+        u4 t = ld16pair(ebp - n);
         u4 col = pal16b[r->ax];
 
         /* A transparent pixel underneath means there is nothing to average
@@ -98,13 +99,13 @@ static void spr_t(regs* const r, u1 const* const src, u1 const ch,
            the transparency buffer needs masking; the pair then goes through
            fulladdtab, read as a dword from a table of words. */
         u4 const* const pal = mode == W_ADD ? pal16bcl : pal16bxcl;
-        u4 t = *(u4 const*)(ebp - n);
+        u4 t = ld16pair(ebp - n);
         u4 col = pal[r->ax];
 
         t &= vesa2_clbit;
         col += t;
         col >>= 1;
-        memcpy(&col, fulladdtab + col, 4);
+        col = ld16pair(fulladdtab + col);
         if (mode == W_SUB) {
             col ^= 0xFFFFu;
         }

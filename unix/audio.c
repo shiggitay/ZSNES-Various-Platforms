@@ -330,7 +330,7 @@ static int SoundInit_ao_driver(const char* driver_name)
     driver_format.bits = 16;
     driver_format.channels = StereoSound + 1;
     driver_format.rate = RATE;
-    driver_format.byte_format = AO_FMT_LITTLE;
+    driver_format.byte_format = AO_FMT_NATIVE; /* the mixer writes host-order int16_t */
     driver_format.matrix = NULL;
 
     if (audio_device) {
@@ -1188,7 +1188,7 @@ static int SoundInit_pipewire(void)
     /* S16_LE, rate=0 means "any"; server reports actual rate in param_changed. */
     {
         struct spa_audio_info_raw info = { 0 };
-        info.format = SPA_AUDIO_FORMAT_S16_LE;
+        info.format = SPA_AUDIO_FORMAT_S16; /* host order, as the mixer writes it */
         info.channels = (uint32_t)(StereoSound + 1);
         info.rate = 0;
         params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
@@ -1366,7 +1366,7 @@ static int SoundInit_sdl_once(void)
 
     wanted.freq = RATE;
     wanted.channels = StereoSound + 1;
-    wanted.format = SDL_AUDIO_S16LE;
+    wanted.format = SDL_AUDIO_S16; /* host order, as the mixer writes it */
 
     sdl_audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &wanted, NULL, NULL);
     if (!sdl_audio_stream) {

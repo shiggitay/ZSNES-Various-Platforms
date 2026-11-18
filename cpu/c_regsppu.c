@@ -4,6 +4,7 @@
  */
 #include "../chips/regabi.h"
 #include "../types.h"
+#include "../unaligned.h"
 #include "memseam.h"
 
 /* --- PPU reads, from cpu/regs.inc ---------------------------------------- *
@@ -250,11 +251,16 @@ u1 c_reg2138r(void)
     return al;
 }
 
+/* The CGRAM ports address bytes of the palette, low byte of each colour
+   first. cgram[] holds the colours as host words, which every renderer reads,
+   so on a big-endian host the byte within a colour is flipped. */
+#define CGRAM_BYTE(a) ((a) ^ (ZSNES_BIG_ENDIAN ? 1u : 0u))
+
 /* CGRAM read port; the address is 9 bits, indexing bytes of the palette. */
 REGABI_REG_READ8(reg213Br);
 u1 c_reg213Br(void)
 {
-    u1 const al = ((u1 const*)cgram)[cgaddr];
+    u1 const al = ((u1 const*)cgram)[CGRAM_BYTE(cgaddr)];
 
     cgaddr = (u2)((cgaddr + 1u) & 0x1FFu);
     return al;
@@ -649,8 +655,8 @@ void c_reg2122w(u1 const al)
 {
     u1* const cg = (u1*)cgram;
 
-    if (cg[cgaddr] != al) {
-        cg[cgaddr] = al;
+    if (cg[CGRAM_BYTE(cgaddr)] != al) {
+        cg[CGRAM_BYTE(cgaddr)] = al;
         cgmod = 1;
     }
     cgaddr = (u2)((cgaddr + 1u) & 0x1FFu);

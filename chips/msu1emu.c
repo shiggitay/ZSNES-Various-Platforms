@@ -1,6 +1,7 @@
 #include "msu1emu.h"
 #include "../gblhdr.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "cfg.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -159,8 +160,19 @@ void MSU1HandleTrackChange(void)
         TRACK_DATA = (short*)malloc(filelen);
         if (TRACK_DATA) {
             fseek(TrackFileReader, 4, SEEK_SET);
-            IGNORE_RESULT(fread(&MSU_Loop_Point, sizeof(int), 1, TrackFileReader));
-            IGNORE_RESULT(fread(TRACK_DATA, filelen, 1, TrackFileReader));
+            {
+                /* The .pcm format is little-endian throughout: a 32-bit loop
+                   point, then 16-bit stereo samples. Put both in host order. */
+                uint8_t lp[4] = { 0 };
+                long i;
+
+                IGNORE_RESULT(fread(lp, 1, sizeof(lp), TrackFileReader));
+                MSU_Loop_Point = (int)ld32le(lp);
+                IGNORE_RESULT(fread(TRACK_DATA, filelen, 1, TrackFileReader));
+                for (i = 0; i < filelen / 2; i++) {
+                    TRACK_DATA[i] = (short)ld16le(&TRACK_DATA[i]);
+                }
+            }
             fclose(TrackFileReader);
 #ifdef DEBUG
             printf("Succesfully loaded Track %lu with length %lu\n", MSU_Track, filelen);

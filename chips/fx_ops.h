@@ -114,8 +114,8 @@ FX_BRANCHES(c, FxTablec)
  * one byte of SfxOverflow/SfxCarry, leaving the other three. */
 
 /* Flag writes are byte-wide, exactly as seto/setc are. */
-static inline void fx_set_overflow(int const v) { *(u1*)&SfxOverflow = (u1) !!v; }
-static inline void fx_set_carry(int const v) { *(u1*)&SfxCarry = (u1) !!v; }
+static inline void fx_set_overflow(int const v) { LE_BYTE(SfxOverflow, 0) = (u1) !!v; }
+static inline void fx_set_carry(int const v) { LE_BYTE(SfxCarry, 0) = (u1) !!v; }
 
 /* Splice a 16-bit result back into the upper half of the original value. */
 static inline u4 fx_lo16(u4 const orig, u4 const res)
@@ -1079,7 +1079,7 @@ static inline void fx_ljmp(u4 const n)
     u4 saved_cx;
 
     fx_fetchpipe();
-    *(u1*)&SfxPBR = (u1)bank; /* byte store: the upper three are kept */
+    LE_BYTE(SfxPBR, 0) = (u1)bank; /* byte store: the upper three are kept */
     SfxCPB = SfxMemTable[bank];
     FxSeamPC = (u1*)(uintptr_t)(SfxCPB + *FxSeamSrc);
     SfxCacheActive = 0;
@@ -1249,7 +1249,7 @@ void c_FxOp04(void) /* ROL: rotate the low half left through carry */
     fx_fetchpipe();
     /* `shr byte[SfxCarry],1` then `rcl byte[SfxCarry],1` puts the bit shifted
        out of ax into bit 0 and leaves the rest of the byte as it was. */
-    *(u1*)&SfxCarry = (u1)((carry & 0xFEu) | ((a >> 15) & 1u));
+    LE_BYTE(SfxCarry, 0) = (u1)((carry & 0xFEu) | ((a >> 15) & 1u));
     FxSeamPC++;
     *FxSeamDst = v;
     SfxSignZero = v;
@@ -1345,7 +1345,7 @@ static inline void fx_from_write(u4 const v)
 {
     *FxSeamDst = v;
     SfxSignZero = v;
-    *(u1*)&SfxOverflow = (u1)((v & 0xFF) >> 7);
+    LE_BYTE(SfxOverflow, 0) = (u1)((v & 0xFF) >> 7);
 }
 
 static inline void fx_torn_b(u4 const n)
@@ -1849,7 +1849,7 @@ static inline void fx_set_color(u1 const col)
     if ((u1)SfxCOLR == col) {
         return;
     }
-    *(u1*)&SfxCOLR = col; /* byte store: the upper three are kept */
+    LE_BYTE(SfxCOLR, 0) = col; /* byte store: the upper three are kept */
     fxbit01pcal = fxbit01[col];
     fxbit23pcal = fxbit23[col];
     fxbit45pcal = fxbit45[col];
@@ -1989,7 +1989,7 @@ void c_FxOpFFA2(void) /* SM R15: store the program counter at a 16-bit address *
 void c_FxOp00(void) /* STOP: halt the GSU, optionally raising an IRQ */
 {
     fx_fetchpipe();
-    *(u1*)&SfxPIPE = (u1)(FxSeamCX & 0xFFu);
+    LE_BYTE(SfxPIPE, 0) = (u1)(FxSeamCX & 0xFFu);
     SfxSFR &= 0xFFFFu - 32u; /* clear the Go flag */
     if (!(SfxCFGR & 0x80u)) {
         SfxSFR |= 0x8000u; /* IRQ not masked, so flag it */
@@ -2031,11 +2031,11 @@ static inline void fx_drawpix(zreg const addr, u4 mask, int const depth, int con
     u4 const col[4] = { b01, b23, b45, b67 };
 
     for (u4 i = 0; i < planes; i++) {
-        st32u(fx_plane(addr, i), ld32u(fx_plane(addr, i)) & mask);
+        st32le(fx_plane(addr, i), ld32le(fx_plane(addr, i)) & mask); /* SNES bitplanes */
     }
     mask ^= 0xFFFFFFFFu;
     for (u4 i = 0; i < planes; i++) {
-        st32u(fx_plane(addr, i), ld32u(fx_plane(addr, i)) | (col[i] & mask));
+        st32le(fx_plane(addr, i), ld32le(fx_plane(addr, i)) | (col[i] & mask));
     }
 }
 
@@ -2122,7 +2122,7 @@ void c_FxOp4CA1(void)
 void c_FxOpd00(void)
 {
     fx_fetchpipe();
-    *(u1*)&SfxPIPE = (u1)(FxSeamCX & 0xFFu);
+    LE_BYTE(SfxPIPE, 0) = (u1)(FxSeamCX & 0xFFu);
     SfxSFR &= 0xFFFFu - 32u;
     FxSeamPC++;
     ChangeOps += NumberOfOpcodes + 0xF0000000u;
@@ -2161,8 +2161,8 @@ void MainLoop(void)
     } while (fx_loop_next());
 
     SfxR0[15] = fx_pc_rel();
-    *(u1*)&SfxPIPE = (u1)(FxSeamCX & 0xFFu);
-    *((u1*)&SfxSFR + 1) = (u1)((*((u1*)&SfxSFR + 1) & 0xFCu) | ((FxSeamCX >> 8) & 0xFFu));
+    LE_BYTE(SfxPIPE, 0) = (u1)(FxSeamCX & 0xFFu);
+    LE_BYTE(SfxSFR, 1) = (u1)((LE_BYTE(SfxSFR, 1) & 0xFCu) | ((FxSeamCX >> 8) & 0xFFu));
     SfxSREG = (u4)(FxSeamSrc - SfxR0);
     SfxDREG = (u4)(FxSeamDst - SfxR0);
 }

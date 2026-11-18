@@ -2371,11 +2371,14 @@ static void OldMovieReplay(void)
 
             if (byte == 0) // 0 means the input has changed
             {
-                IGNORE_RESULT(fread(&old_movie.last_joy_state.A, 1, 4, old_movie.fp));
-                IGNORE_RESULT(fread(&old_movie.last_joy_state.B, 1, 4, old_movie.fp));
-                IGNORE_RESULT(fread(&old_movie.last_joy_state.C, 1, 4, old_movie.fp));
-                IGNORE_RESULT(fread(&old_movie.last_joy_state.D, 1, 4, old_movie.fp));
-                IGNORE_RESULT(fread(&old_movie.last_joy_state.E, 1, 4, old_movie.fp));
+                /* Five little-endian dwords, one per controller. */
+                unsigned char joy[5][4] = { { 0 } };
+                IGNORE_RESULT(fread(joy, 1, sizeof(joy), old_movie.fp));
+                old_movie.last_joy_state.A = bytes_to_uint32(joy[0]);
+                old_movie.last_joy_state.B = bytes_to_uint32(joy[1]);
+                old_movie.last_joy_state.C = bytes_to_uint32(joy[2]);
+                old_movie.last_joy_state.D = bytes_to_uint32(joy[3]);
+                old_movie.last_joy_state.E = bytes_to_uint32(joy[4]);
             }
 
             JoyAOrig = old_movie.last_joy_state.A;

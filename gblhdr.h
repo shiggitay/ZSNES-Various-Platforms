@@ -59,7 +59,11 @@ however it's a static value that we can just define */
 
 #ifdef __UNIXSDL__
 #include "zcompat.h"
+#ifdef ZSNES_SDL12
+#include "unix/sdl12compat.h"
+#else
 #include <SDL3/SDL.h>
+#endif
 #include <arpa/inet.h>
 #include <glob.h>
 #include <limits.h>

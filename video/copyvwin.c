@@ -6,6 +6,7 @@
 #include "../endmem.h"
 #include "../gui/gui.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "../vcache.h"
 #include "2xsaiw.h"
 #include "cfg.h"
@@ -29,6 +30,14 @@ u4 NumBytesPerLine;
 
 static u1* InterPtr = 0;
 
+/* Two 16-bit pixels as the dword that stores them left then right, whatever
+   the host's byte order. */
+#if ZSNES_BIG_ENDIAN
+#define PIX2(left, right) ((u4)(u2)(left) << 16 | (u2)(right))
+#else
+#define PIX2(left, right) ((u4)(u2)(right) << 16 | (u2)(left))
+#endif
+
 static void HighResProc(u2** psrc, u1** pdst, u1* ebx)
 {
     u2* src = *psrc;
@@ -41,7 +50,7 @@ static void HighResProc(u2** psrc, u1** pdst, u1* ebx)
         do {
             if (*ebx & 3) {
                 do {
-                    *(u4*)dst = (u4)src[75036 * 2] << 16 | *src;
+                    *(u4*)dst = PIX2(*src, src[75036 * 2]);
                     src += 1;
                     dst += 4;
                 } while (--ecx != 0);
@@ -58,7 +67,7 @@ static void HighResProc(u2** psrc, u1** pdst, u1* ebx)
                         src -= 256;
                         u4 ecx = 256;
                         do {
-                            u4 eax = src[75036 * 2] << 16 | *src;
+                            u4 eax = PIX2(*src, src[75036 * 2]);
                             eax = (eax & HalfTrans[0]) >> 1;
                             *(u4*)dst = eax;
                             src += 1;
@@ -72,7 +81,7 @@ static void HighResProc(u2** psrc, u1** pdst, u1* ebx)
                         src -= 256;
                         u4 ecx = 256;
                         do {
-                            u4 eax = src[75036 * 2] << 16 | *src;
+                            u4 eax = PIX2(*src, src[75036 * 2]);
                             eax = (eax & HalfTrans[0]) >> 1;
                             u4 edx = (eax & HalfTrans[0]) >> 1;
                             eax += edx;
@@ -88,7 +97,7 @@ static void HighResProc(u2** psrc, u1** pdst, u1* ebx)
                         src -= 256;
                         u4 ecx = 256;
                         do {
-                            *(u4*)dst = (u4)src[75036 * 2] << 16 | *src;
+                            *(u4*)dst = PIX2(*src, src[75036 * 2]);
                             src += 1;
                             dst += 4;
                         } while (--ecx != 0);
@@ -166,9 +175,9 @@ static void interpolate640x480x16bwin(u2* src, u1* dst, u1 dl)
                     do {
                         u4 eax = src[0];
                         u4 ebx = src[1];
-                        ebx &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        eax &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        ebx = ((ebx + eax) << 15 & 0xFFFF0000) | *src;
+                        ebx &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        eax &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        ebx = PIX2(*src, (ebx + eax) >> 1); /* the pixel, then its average with the next */
                         *(u4*)dst = ebx;
                         src += 1;
                         dst += 4;
@@ -227,9 +236,9 @@ static void interpolate640x480x16bwin(u2* src, u1* dst, u1 dl)
                     do {
                         u4 eax = src[0];
                         u4 ebx = src[1];
-                        ebx &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        eax &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        ebx = ((ebx + eax) << 15 & 0xFFFF0000) | *src;
+                        ebx &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        eax &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        ebx = PIX2(*src, (ebx + eax) >> 1); /* the pixel, then its average with the next */
                         *(u4*)edx = ebx;
                         *(u4*)dst = ebx;
                         src += 1;
@@ -279,9 +288,9 @@ static void interpolate640x480x16bwin(u2* src, u1* dst, u1 dl)
                     do {
                         u4 eax = src[0];
                         u4 ebx = src[1];
-                        ebx &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        eax &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        ebx = ((ebx + eax) << 15 & 0xFFFF0000) | *src;
+                        ebx &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        eax &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        ebx = PIX2(*src, (ebx + eax) >> 1); /* the pixel, then its average with the next */
                         *(u4*)edx = ebx;
                         *(u4*)dst = ebx;
                         src += 1;
@@ -315,9 +324,9 @@ static void interpolate640x480x16bwin(u2* src, u1* dst, u1 dl)
         do {
             u4 eax = src[0];
             u4 ebx = src[1];
-            ebx &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-            eax &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-            ebx = ((ebx + eax) << 15 & 0xFFFF0000) | *src;
+            ebx &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+            eax &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+            ebx = PIX2(*src, (ebx + eax) >> 1); /* the pixel, then its average with the next */
             *(u4*)dst = ebx;
             *(u4*)edx = ebx;
             src += 1;
@@ -344,12 +353,11 @@ static void interpolate640x480x16bwin(u2* src, u1* dst, u1 dl)
                     do {
                         u4 eax = src[0];
                         u4 ebx = src[1];
-                        ebx &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
-                        eax &= *(u4*)((u1*)HalfTrans + 6); // XXX unaligned?
+                        ebx &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
+                        eax &= (HalfTrans[1] >> 16); /* bytes 6-7: one pixel's mask */
                         ebx += eax;
-                        ebx <<= 15;
                         u4 eax_ = *(u4*)edx;
-                        ebx = (ebx & 0xFFFF0000) | *src;
+                        ebx = PIX2(*src, ebx >> 1);
                         *(u4*)edx = ebx;
                         *(u4*)dst = ((eax_ & HalfTrans[0]) >> 1) + ((ebx & HalfTrans[0]) >> 1);
                         src += 1;

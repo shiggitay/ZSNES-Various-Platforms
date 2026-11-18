@@ -19,7 +19,7 @@ void UpdateSCBRCOLR(void);
 void UpdateCLSR(void);
 void SfxExecOnStart(void);
 
-#define BYTE(v, n) (((uint8_t*)&(v))[n])
+#define BYTE(v, n) LE_BYTE(v, n)
 
 REGABI_REG_READ8(reg3000r);
 uint8_t c_reg3000r(void) { return BYTE(SfxR0[0], 0); }
@@ -392,30 +392,30 @@ uint8_t c_sfxaccessbankr8(uint32_t a) { return sfxramdata[a + 0]; }
 MEMBANK_WRITE8(sfxaccessbankw8);
 void c_sfxaccessbankw8(uint32_t a, uint8_t v) { sfxramdata[a + 0] = v; }
 MEMBANK_READ16(sfxaccessbankr16);
-uint16_t c_sfxaccessbankr16(uint32_t a) { return *(uint16_t*)(sfxramdata + a + 0); }
+uint16_t c_sfxaccessbankr16(uint32_t a) { return ld16le(sfxramdata + a + 0); }
 MEMBANK_WRITE16(sfxaccessbankw16);
-void c_sfxaccessbankw16(uint32_t a, uint16_t v) { *(uint16_t*)(sfxramdata + a + 0) = v; }
+void c_sfxaccessbankw16(uint32_t a, uint16_t v) { st16le(sfxramdata + a + 0, v); }
 MEMBANK_READ8(sfxaccessbankr8b);
 uint8_t c_sfxaccessbankr8b(uint32_t a) { return sfxramdata[a + 65536]; }
 MEMBANK_WRITE8(sfxaccessbankw8b);
 void c_sfxaccessbankw8b(uint32_t a, uint8_t v) { sfxramdata[a + 65536] = v; }
 MEMBANK_READ16(sfxaccessbankr16b);
-uint16_t c_sfxaccessbankr16b(uint32_t a) { return *(uint16_t*)(sfxramdata + a + 65536); }
+uint16_t c_sfxaccessbankr16b(uint32_t a) { return ld16le(sfxramdata + a + 65536); }
 MEMBANK_WRITE16(sfxaccessbankw16b);
-void c_sfxaccessbankw16b(uint32_t a, uint16_t v) { *(uint16_t*)(sfxramdata + a + 65536) = v; }
+void c_sfxaccessbankw16b(uint32_t a, uint16_t v) { st16le(sfxramdata + a + 65536, v); }
 MEMBANK_READ8(sfxaccessbankr8c);
 uint8_t c_sfxaccessbankr8c(uint32_t a) { return sfxramdata[a + 131072]; }
 MEMBANK_WRITE8(sfxaccessbankw8c);
 void c_sfxaccessbankw8c(uint32_t a, uint8_t v) { sfxramdata[a + 131072] = v; }
 MEMBANK_READ16(sfxaccessbankr16c);
-uint16_t c_sfxaccessbankr16c(uint32_t a) { return *(uint16_t*)(sfxramdata + a + 131072); }
+uint16_t c_sfxaccessbankr16c(uint32_t a) { return ld16le(sfxramdata + a + 131072); }
 MEMBANK_WRITE16(sfxaccessbankw16c);
-void c_sfxaccessbankw16c(uint32_t a, uint16_t v) { *(uint16_t*)(sfxramdata + a + 131072) = v; }
+void c_sfxaccessbankw16c(uint32_t a, uint16_t v) { st16le(sfxramdata + a + 131072, v); }
 MEMBANK_READ8(sfxaccessbankr8d);
 uint8_t c_sfxaccessbankr8d(uint32_t a) { return sfxramdata[a + 196608]; }
 MEMBANK_WRITE8(sfxaccessbankw8d);
 void c_sfxaccessbankw8d(uint32_t a, uint8_t v) { sfxramdata[a + 196608] = v; }
 MEMBANK_READ16(sfxaccessbankr16d);
-uint16_t c_sfxaccessbankr16d(uint32_t a) { return *(uint16_t*)(sfxramdata + a + 196608); }
+uint16_t c_sfxaccessbankr16d(uint32_t a) { return ld16le(sfxramdata + a + 196608); }
 MEMBANK_WRITE16(sfxaccessbankw16d);
-void c_sfxaccessbankw16d(uint32_t a, uint16_t v) { *(uint16_t*)(sfxramdata + a + 196608) = v; }
+void c_sfxaccessbankw16d(uint32_t a, uint16_t v) { st16le(sfxramdata + a + 196608, v); }

@@ -166,6 +166,62 @@ make
 
 Tested on Windows 11 ARM64 with MSYS2 CLANGARM64.
 
+### 32-bit PowerPC (Yellow Dog Linux, G3/G4/G5, PS3)
+
+`make linux_ppc` builds a 32-bit big-endian PowerPC binary, natively on a PowerPC
+host or with a `powerpc-linux-gnu` cross compiler. A `ppc64` kernel with a 32-bit
+userland, as on the PS3 and the G5, counts as PowerPC too.
+
+The emulator core, both renderers, sound, MSU-1 and the coprocessors are
+byte-order independent: on the test suite in `test/` and on a set of 164 test
+ROMs, a PowerPC build produces the same machine state, the same picture and the
+same audio samples as an x86 build, frame for frame.
+
+Systems of Yellow Dog Linux's era have SDL 1.2 rather than SDL3. Build against
+it with `WITH_SDL12=yes`, which puts `unix/sdl12compat.c` - the part of SDL3 the
+frontend uses, written on top of SDL 1.2 - in place of SDL3:
+
+```sh
+make linux_ppc WITH_SDL12=yes
+```
+
+With SDL 1.2 the video is software only (no OpenGL or accelerated renderer,
+and scaled modes are nearest-neighbour), every controller is a plain joystick
+(no gamepad mapping, no rumble), and audio goes through SDL 1.2's own drivers.
+Key bindings are stored with SDL3's numbers either way, so a configuration file
+moves between the two builds.
+
+Cross-compiling from Debian or Ubuntu, with SDL 1.2 and libpng built for the
+target and their `sdl-config` and `.pc` files pointed at:
+
+```sh
+apt install -y gcc-powerpc-linux-gnu
+make linux_ppc WITH_SDL12=yes SDL_CONFIG=/path/to/ppc/bin/sdl-config \
+  LINUX_PPC_PKG_CONFIG=/path/to/powerpc-linux-gnu-pkg-config
+```
+
+For Yellow Dog Linux itself, `tools/build-ydl.sh` does the whole cross build on
+Debian or Ubuntu: it fetches Debian 4.0's PowerPC glibc 2.3.6 and SDL 1.2.11 from
+archive.debian.org (checking them against the archive's SHA1 sums), builds
+against them, and leaves a `zsnes` that needs nothing newer than `GLIBC_2.3.4`
+and `libSDL-1.2.so.0` - which Yellow Dog Linux 5, 6 and 7 all have. That build
+saves screenshots as BMP rather than PNG.
+
+```sh
+apt install -y gcc-powerpc-linux-gnu curl python3 make pkg-config
+tools/build-ydl.sh
+```
+
+The tree is C11: building on the PowerPC machine itself needs GCC 6 or newer.
+To tune for a particular core, pass `PPC_CFLAGS`, for example
+`PPC_CFLAGS=-mcpu=7450` (G4), `-mcpu=970` (G5) or `-mcpu=cell` (PS3); the
+default runs on any 32-bit PowerPC, the G3 included.
+
+Save states hold the emulator's memory in the host's byte order, so a state
+saved on PowerPC loads on PowerPC and one saved on x86 loads on x86. Battery
+saves (`.srm`), movies, cheats, configuration files and netplay are the same on
+both.
+
 ### Pull requests
 
 * Pull requests are welcome.

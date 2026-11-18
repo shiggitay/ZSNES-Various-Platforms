@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "makevid.h" /* SpriteInfo */
 
 // ---- shared globals (defined in endmem.asm / the test harness) ----
@@ -954,7 +955,7 @@ void cachesprites(void)
             curobjtype = *objptr_p;
         }
 
-        u2 curobj = ld16(esi_oam);
+        u2 curobj = ld16le(esi_oam); /* OAM, low byte first */
         curobj = (u2)(curobj & 0x01FF); // and bh,1
 
         do {

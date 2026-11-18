@@ -1,4 +1,5 @@
 #include "../gblhdr.h"
+#include "../unaligned.h"
 #include "../zpath.h"
 #include "cfg.h"
 #include <stdbool.h>
@@ -415,10 +416,10 @@ extern uint32_t CRC32;
 extern uint8_t SPCCompressionRegs[];
 extern uint8_t* romdata;
 
-#define READ_WORD16_LE(pos) (*(uint16_t*)(pos))
-#define WRITE_WORD16_LE(pos, val) (*(uint16_t*)(pos) = (val))
+#define READ_WORD16_LE(pos) ld16le(pos)
+#define WRITE_WORD16_LE(pos, val) st16le((pos), (val))
 
-#define READ_WORD24_LE(pos) ((uint32_t)(*(uint16_t*)(pos)) + (((uint32_t)((pos)[2])) << 16))
+#define READ_WORD24_LE(pos) ((uint32_t)ld16le(pos) + (((uint32_t)((pos)[2])) << 16))
 #define READ_WORD24_BE(pos) ((((uint32_t)((pos)[0])) << 16) + (((uint32_t)((pos)[1])) << 8) + (pos)[2])
 
 #define NUM_ELEMENTS(x) (sizeof((x)) / sizeof((x)[0]))

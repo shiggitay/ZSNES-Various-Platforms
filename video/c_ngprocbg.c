@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "c_mode716gate.h"
 #include "makevid.h"
 
@@ -24,7 +25,7 @@ extern u1 Mode7HiRes16b, scanlines, mode7set;
 extern u2 BG1SXl[256], m7starty;
 /* The A+B, C+D and X0+Y0 word pairs are adjacent and saved and restored a
    dword at a time; the _dw aliases name the pair (cpu/c_regsdata.c). */
-extern u1 mode7A_dw[4], mode7C_dw[4], mode7X0_dw[4];
+extern u2 mode7A, mode7B, mode7C, mode7D, mode7X0, mode7Y0;
 extern u4 Mode7BackA, Mode7BackC, Mode7BackX0, Mode7BackSet;
 extern u4 mode7ab[256], mode7cd[256], mode7xy[256];
 extern u1 mode7st[256];
@@ -89,10 +90,7 @@ enum {
    whatever follows; that is what the assembly does. */
 static u4 dw(u1 const* const p, u4 const i)
 {
-    u4 v;
-
-    memcpy(&v, p + i, 4);
-    return v;
+    return ld32le(p + i); /* byte tables: the masks below name bytes 0-3 */
 }
 
 /* mosaic_countdown: the first line of a block latches where it started and how
@@ -307,15 +305,15 @@ enum {
     M7_EXTBG2
 };
 
-static u4 m7dwr(void const* const p)
+/* The matrix registers in pairs, A|B, C|D and X0|Y0, low one in the low half
+   as the assembly's dword access to mode7A/mode7C/mode7X0 had them. */
+static u4 m7get(u2 const lo, u2 const hi) { return lo | (u4)hi << 16; }
+
+static void m7set(u2* const lo, u2* const hi, u4 const v)
 {
-    u4 v;
-
-    memcpy(&v, p, 4);
-    return v;
+    *lo = (u2)v;
+    *hi = (u2)(v >> 16);
 }
-
-static void m7dww(void* const p, u4 const v) { memcpy(p, &v, 4); }
 
 void c_procmode7ng16b(int main_, u4 mask, int kind);
 
@@ -325,9 +323,9 @@ void c_procmode7ng16b(int const main_, u4 const mask, int const kind)
     u4 y = 1;
 
     winon = 0;
-    Mode7BackA = m7dwr(mode7A_dw);
-    Mode7BackC = m7dwr(mode7C_dw);
-    Mode7BackX0 = m7dwr(mode7X0_dw);
+    Mode7BackA = m7get(mode7A, mode7B);
+    Mode7BackC = m7get(mode7C, mode7D);
+    Mode7BackX0 = m7get(mode7X0, mode7Y0);
     Mode7BackSet = mode7set;
     for (;;) {
         if (kind == M7_EXTBG) {
@@ -345,9 +343,9 @@ void c_procmode7ng16b(int const main_, u4 const mask, int const kind)
                 esi[-1] = 1;
             }
             DLR[6] = cpalval[y];
-            m7dww(mode7A_dw, mode7ab[y]);
-            m7dww(mode7C_dw, mode7cd[y]);
-            m7dww(mode7X0_dw, mode7xy[y]);
+            m7set(&mode7A, &mode7B, mode7ab[y]);
+            m7set(&mode7C, &mode7D, mode7cd[y]);
+            m7set(&mode7X0, &mode7Y0, mode7xy[y]);
             mode7set = mode7st[y];
             curmosaicsz = 1;
             if (mosenng[y] & 1u) {
@@ -402,8 +400,8 @@ void c_procmode7ng16b(int const main_, u4 const mask, int const kind)
             break;
         }
     }
-    m7dww(mode7A_dw, Mode7BackA);
-    m7dww(mode7C_dw, Mode7BackC);
-    m7dww(mode7X0_dw, Mode7BackX0);
+    m7set(&mode7A, &mode7B, Mode7BackA);
+    m7set(&mode7C, &mode7D, Mode7BackC);
+    m7set(&mode7X0, &mode7Y0, Mode7BackX0);
     mode7set = (u1)Mode7BackSet;
 }

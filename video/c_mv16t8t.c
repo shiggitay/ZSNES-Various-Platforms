@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "c_mv16tt.h"
 #include "makevid.h"
 
@@ -48,7 +49,7 @@ static void tiles(tt_regs* const r, u4 const hofs, u1* esi, int const mode,
     do {
         u1 attr;
 
-        eax = (eax & 0xFFFF0000u) | *edi++;
+        eax = (eax & 0xFFFF0000u) | ld16le(edi++);
         attr = (u1)((eax >> 8) ^ curbgpr);
         if (winon_) {
             ecx = (ecx & 0xFFFFFF00u) | attr;

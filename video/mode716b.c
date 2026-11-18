@@ -15,6 +15,7 @@
 #include "../endmem.h"
 #include "../types.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "../vcache.h"
 #include "c_newgfx16.h"
 #include "m716text.h"
@@ -301,14 +302,14 @@ static void process_b(u2* dest, u1 const* win)
         u4 xaddofa = 0;
         u1 xaddof2a = 0;
         for (s4 b = m7xadder < 0 ? -m7xadder : m7xadder; b >= 0x800;
-            b -= 0x800) {
+             b -= 0x800) {
             xaddofa += (u4)m7xadd2;
             xaddof2a += m7xinc;
         }
         u4 yaddofa = 0;
         u1 yaddof2a = 0;
         for (s4 b = m7yadder < 0 ? -m7yadder : m7yadder; b >= 0x800;
-            b -= 0x800) {
+             b -= 0x800) {
             yaddofa += (u4)m7yadd2;
             yaddof2a += m7yinc;
         }
@@ -718,7 +719,7 @@ void c_drawmode716textbg2(u4 craw)
     u1 const* win = NULL;
     if (curmosaicsz == 1 && winon != 0) {
         win = cwinptr;
-        *(u1*)dest = (u1)craw; // stray write of the caller's CL, as in the asm
+        ((u1*)dest)[ZSNES_BIG_ENDIAN] = (u1)craw; // stray write of the caller's CL into the pixel's low byte, as in the asm
     }
 
     for (u4 count = 256; count != 0; --count) {
@@ -940,7 +941,7 @@ void c_drawmode716extbg2(u4 craw)
     u1 const* win = NULL;
     if (curmosaicsz == 1 && winon != 0) {
         win = cwinptr;
-        *(u1*)dest = (u1)craw; // stray write of the caller's CL, as in the asm
+        ((u1*)dest)[ZSNES_BIG_ENDIAN] = (u1)craw; // stray write of the caller's CL into the pixel's low byte, as in the asm
     }
 
     for (u4 count = 256; count != 0; --count) {

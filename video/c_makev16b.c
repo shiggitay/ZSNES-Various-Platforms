@@ -5,6 +5,7 @@
 #include "../cpu/regsw.h"
 #include "../endmem.h"
 #include "../initc.h"
+#include "../unaligned.h"
 #include "cfg.h"
 #ifndef ROL
 #define ROL(x, n) ((x) << (n) | (x) >> (sizeof(x) * 8 - (n)))
@@ -100,6 +101,11 @@ static void ng_proc1dual(u1** const pesi, u1 const ch, u4 lo, u4 hi)
     *pesi = esi;
 }
 
+/* The second row of ngwintablec holds a dword per entry, but the parity pass
+   reads and writes only its low byte - the byte at +64 on x86, the last of
+   the four on a big-endian host. */
+#define NG_PARITY (64 + (ZSNES_BIG_ENDIAN ? 3 : 0))
+
 static void ng_bw_dualwin(u4 const eax, u4 const ebx, u1 const ch0)
 {
     u1* esi = (u1*)ngwintable;
@@ -147,7 +153,7 @@ static void ng_bw_dualwin(u4 const eax, u4 const ebx, u1 const ch0)
         if (!take_edi) {
             if (v == *(u4*)ediw) { // equal: consume both
                 *(u4*)edx = v;
-                edx[64] = (u1)(cl + chp);
+                edx[NG_PARITY] = (u1)(cl + chp);
                 cl = (u1)-cl;
                 chp = (u1)-chp;
                 edx += 4;
@@ -159,7 +165,7 @@ static void ng_bw_dualwin(u4 const eax, u4 const ebx, u1 const ch0)
             }
             if (v < *(u4*)ediw) { // take win1
                 *(u4*)edx = v;
-                edx[64] = cl;
+                edx[NG_PARITY] = cl;
                 cl = (u1)-cl;
                 edx += 4;
                 esiw += 4;
@@ -177,14 +183,14 @@ static void ng_bw_dualwin(u4 const eax, u4 const ebx, u1 const ch0)
             }
             // win1 still has entries
             *(u4*)edx = v;
-            edx[64] = cl;
+            edx[NG_PARITY] = cl;
             cl = (u1)-cl;
             edx += 4;
             esiw += 4;
             continue;
         }
         *(u4*)edx = v;
-        edx[64] = chp;
+        edx[NG_PARITY] = chp;
         chp = (u1)-chp;
         edx += 4;
         ediw += 4;
@@ -195,8 +201,8 @@ static void ng_bw_dualwin(u4 const eax, u4 const ebx, u1 const ch0)
     u1 const* const lt = &ng_logictab[(nglogicval & 3) << 2];
     u1 acc2 = 0;
     for (u1* p = (u1*)ngwintablec; p != winPtrAc; p += 4) {
-        acc2 = (u1)(acc2 + p[64]);
-        p[64] = lt[acc2];
+        acc2 = (u1)(acc2 + p[NG_PARITY]);
+        p[NG_PARITY] = lt[acc2];
     }
 
     // Shorten & convert back to displacement format in both rows.
@@ -204,7 +210,7 @@ static void ng_bw_dualwin(u4 const eax, u4 const ebx, u1 const ch0)
     u4 prev = 0;
     esi = (u1*)ngwintable;
     for (u1* p = (u1*)ngwintablec; p != winPtrAc; p += 4) {
-        if (p[64] == want) {
+        if (p[NG_PARITY] == want) {
             u4 const disp = *(u4*)p - prev;
             prev += disp;
             *(u4*)esi = disp;
@@ -838,7 +844,7 @@ static void draw16x1616bwinon(u2* esi, u2 const* edi)
     u1 dl = temp;
     u1 const* ebp = winptrref;
     do {
-        u2 ax = *edi;
+        u2 ax = ld16le(edi);
         u1 dh = ax >> 8;
         a16x16xinc ^= 1;
         if (a16x16xinc & 0x01) {
@@ -952,7 +958,7 @@ void draw16x1616b(u4 const eax, u4 const ecx, u2* const edx, u1* const ebx, u4 c
         tileleft16b = 33;
         u1 dl = temp;
         do {
-            u2 ax = *edi;
+            u2 ax = ld16le(edi);
             u1 dh = ax >> 8;
             a16x16xinc ^= 1;
             if (a16x16xinc & 0x01) {
@@ -1055,7 +1061,7 @@ static void draw8x816bwinonoffset(u2* esi, u2 const* edi)
     drawn = 0;
     u1 const* ebp = winptrref;
     do {
-        u2 const ax = *edi++;
+        u2 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = ax >> 8 ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;
@@ -1140,7 +1146,7 @@ void draw8x816boffset(u4 const eax, u4 const ecx, u2* const edx, u1* const ebx, 
         tileleft16b = 33;
         drawn = 0;
         do {
-            u2 ax = *edi++;
+            u2 ax = ld16le(edi++); /* tilemap entry in VRAM */
             u1 const dh = ax >> 8 ^ curbgpr;
             if (!(dh & 0x20)) {
                 ++drawn;
@@ -1194,7 +1200,7 @@ static void draw8x816bwinon(u2* esi, u2 const* edi)
     u1 dl = temp;
     u1 const* ebp = winptrref;
     do {
-        u2 const ax = *edi++;
+        u2 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = ax >> 8 ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;
@@ -1257,7 +1263,7 @@ static void draw16x816winonb(u2* esi, u2 const* edi)
     u1 const* ebp = winptrref;
     u1 dl = temp;
     do {
-        u2 const ax = *edi++;
+        u2 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = (ax >> 8) ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;
@@ -1315,7 +1321,7 @@ static void draw16x816bwinon(u2* esi, u2 const* edi)
     u1 const* ebp = winptrref;
     u1 dl = temp;
     do {
-        u2 const ax = *edi++;
+        u2 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = ax >> 8 ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;
@@ -1374,7 +1380,7 @@ static void draw16x816b(u2* esi, u2 const* edi)
     drawn = 0;
     u1 dl = temp;
     do {
-        u2 const ax = *edi++;
+        u2 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = ax >> 8 ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;
@@ -1462,7 +1468,7 @@ static void draw16x816(u4 const eax, u4 const ecx, u2* const edx, u1* const ebx,
     drawn = 0;
     u1 dl = temp;
     do {
-        u2 const ax = *edi++;
+        u2 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = ax >> 8 ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;
@@ -1557,7 +1563,7 @@ void draw8x816b(u4 eax, u4 ecx, u2* edx, u1* ebx, u4 const layer, u4 eax_, u2 co
     drawn = 0;
     u1 dl = temp;
     do {
-        u2 ax = *edi++;
+        u2 ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = ax >> 8 ^ curbgpr;
         if (!(dh & 0x20)) {
             ++drawn;

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../unaligned.h"
 #include "memseam_stub.h"
 #include "zstest.h"
 
@@ -23,7 +24,9 @@ extern uint32_t PHnum2writesa1reg;
 extern uint8_t RTCData[16];
 
 /* Stage 2 state + handlers */
-extern uint32_t SA1Message, SA1IRQExec, SA1IRQData, SA1ARR1, SA1ARR2, SA1Overflow;
+extern uint32_t SA1Message, SA1IRQExec, SA1IRQData, SA1ARR1, SA1ARR2;
+/* Declared at the width sa1regs.c uses, so a big-endian host sees the same byte. */
+extern uint16_t SA1Overflow;
 extern uint32_t SA1TimerSet, SA1TimerCount;
 extern uint8_t IRAM[2049];
 /* externs that sa1regs.c references; the test owns them here */
@@ -38,8 +41,10 @@ uint8_t c_IRamRead(uint32_t);
 void c_IRamWrite(uint32_t, uint8_t);
 
 /* Stage 3 state + handlers */
-extern uint32_t SA1Control, SA1DoIRQ, SA1BankPtr, SA1Ptr, SA1ResetV, SA1xpb, SA1xs;
-extern uint32_t SA1RegPCS, SA1IRQEnable, SA1NMIV, SA1IRQV, SNSNMIV, SNSIRQV;
+extern uint8_t SA1Control;
+extern uint32_t SA1DoIRQ, SA1BankPtr, SA1Ptr, SA1ResetV, SA1xpb, SA1xs;
+extern uint8_t SA1IRQEnable;
+extern uint32_t SA1RegPCS, SA1NMIV, SA1IRQV, SNSNMIV, SNSIRQV;
 /* externs sa1regs.c needs; test owns them */
 uint8_t rombuf[0x10000];
 uint8_t* romdata = rombuf;
@@ -62,8 +67,10 @@ void c_sdd14804w(uint8_t), c_sdd14801w(uint8_t);
 uint8_t c_sdd14804(void);
 
 /* Stage 5 state + handlers */
-extern uint32_t SA1ARC, SA1AR1, SA1AR2;
-extern uint32_t SA1DMAInfo, SA1DMAChar, SA1DMASource, SA1DMADest, SA1DMACount;
+extern uint32_t SA1ARC;
+extern uint16_t SA1AR1, SA1AR2, SA1DMACount;
+extern uint8_t SA1DMAInfo;
+extern uint32_t SA1DMAChar, SA1DMASource, SA1DMADest;
 extern uint32_t SA1_CC2_line, SA1_in_cc1_dma;
 /* called by the handlers; the test owns them and counts invocations */
 int arith_calls, dmairam_calls, dmabwram_calls, cc2_calls;
@@ -95,7 +102,7 @@ void c_RTC2801w(uint8_t);
 uint8_t c_RTC2800(void);
 
 #define OFF(sym) ((char*)&(sym) - (char*)&SA1Mode)
-#define BYTE(v, n) (((uint8_t*)&(v))[n])
+#define BYTE(v, n) LE_BYTE(v, n)
 
 int main(void)
 {

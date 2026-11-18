@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "c_mv16tbt.h"
 #include "makevid.h"
 
@@ -41,7 +42,7 @@ static void tiles(bt_regs* const r, u4 const hofs, u1* esi, int const winon_)
        the caller passed in as the map pointer. */
     edx = (edx & 0xFFFFFF00u) | temp;
     do {
-        u4 const ax = *edi++;
+        u4 const ax = ld16le(edi++); /* tilemap entry in VRAM */
         u1 const dh = (u1)((ax >> 8) ^ curbgpr);
 
         edx = (edx & 0xFFFF00FFu) | (u4)dh << 8;

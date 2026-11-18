@@ -55,12 +55,9 @@ static u2 clip(u2 const v, u2 const sign, u2 const mask)
    with a 16-bit add - the top byte must not see the carry. */
 static void add_hi16(u4* const dst, u2 const v)
 {
-    u1* const p = (u1*)dst;
-    u2 w;
+    u2 const w = (u2)((u2)(*dst >> 8) + v); /* bytes 1-2 of the value */
 
-    memcpy(&w, p + 1, 2);
-    w = (u2)(w + v);
-    memcpy(p + 1, &w, 2);
+    *dst = (*dst & 0xFF0000FFu) | (u4)w << 8;
 }
 
 static s4 scaled(u2 const m, s4 const by, int const halve)

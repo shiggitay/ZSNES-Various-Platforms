@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 
 zreg MVSAX;
 zreg MVSBX;
@@ -55,7 +56,7 @@ static void write_c(struct mvregs* const r, u1 const* const src, u4 const n,
         return;
     }
     r->eax = (r->eax & ~0xFFu) | (u1)(al + (win ? coadder16 : dh));
-    r->ebx = *(u4*)(ebp + off);
+    r->ebx = ld16pair(ebp + off);
     r->ecx = (sub ? pal16bxcl : pal16bcl)[(u1)r->eax];
     *(u2*)(ebp + off) = (u2)r->ecx;
     r->ebx &= CLBIT;
@@ -65,7 +66,7 @@ static void write_c(struct mvregs* const r, u1 const* const src, u4 const n,
        top half too, and only the low half is stored. The index is the whole
        of ecx, which stays inside the table because a palette entry is 16 bits
        and the average of two of them cannot carry out. Reproduced, not fixed. */
-    memcpy(&r->ecx, fulladdtab + r->ecx, 4);
+    r->ecx = ld16pair(fulladdtab + r->ecx);
     if (sub) {
         r->ecx ^= 0xFFFFu;
     }
@@ -115,7 +116,7 @@ static void draw_row(int const winon, int const sub, int const mosaic)
     drawn = 0;
 
     do {
-        u2 const entry = *(u2 const*)edi;
+        u2 const entry = ld16le(edi); /* tilemap entry in VRAM */
         /* bit 5 = priority, 6 = flip x, 7 = flip y, 10-12 = palette. */
         u1 const flags = (u1)((entry >> 8) ^ curbgpr);
 
@@ -203,7 +204,7 @@ static void write_a(struct mvregs* const r, u1 const* const src, u4 const n,
         return;
     }
     r->eax = (r->eax & ~0xFFu) | (u1)(al + (win ? coadder16 : dh));
-    r->ecx = *(u4*)(ebp + off);
+    r->ecx = ld16pair(ebp + off);
     r->eax = pal16b[(u1)r->eax];
     *(u2*)(ebp + off) = (u2)r->eax;
     if ((r->ecx & 0xFFFFu) != 0) {
@@ -254,7 +255,7 @@ static void draw_row_a(int const winon)
     drawn = 0;
 
     do {
-        u2 const entry = *(u2 const*)edi;
+        u2 const entry = ld16le(edi); /* tilemap entry in VRAM */
         u1 const flags = (u1)((entry >> 8) ^ curbgpr);
 
         r.eax = (r.eax & ~0xFFFFu) | entry;
@@ -355,7 +356,7 @@ static void draw_row16(enum mv16var const var, int const winon)
     tileleft16b = 33;
 
     do {
-        u2 const entry = *(u2 const*)edi;
+        u2 const entry = ld16le(edi); /* tilemap entry in VRAM */
         u1 const raw = (u1)(entry >> 8);
         u1 const flags = (u1)(raw ^ curbgpr);
 

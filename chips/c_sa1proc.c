@@ -9,6 +9,7 @@
 #include "../gblvars.h"
 #include "../initc.h"
 #include "../ui.h" /* wramdata */
+#include "../unaligned.h"
 #include "sa1proc.h"
 #include "sa1regs.h"
 
@@ -64,8 +65,8 @@ static void call_membank0w8(u2 const cx, u1 const al)
 // byte is flagged (2 = NMI, 1 = IRQ).
 static void SA1switch(zreg* const pedx, u1** const pesi, u2 const vec, int const irqexec_off)
 {
-    ((u1*)&SA1Message)[2] = (u1)SA1Message;
-    ((u1*)&SA1IRQExec)[irqexec_off] = 1;
+    LE_BYTE(SA1Message, 2) = (u1)SA1Message;
+    LE_BYTEV(SA1IRQExec, irqexec_off) = 1;
 
     u2 const xpc = (u2)(*pesi - initaddrl);
     SA1xpc = (SA1xpc & 0xFFFF0000) | xpc;
@@ -114,12 +115,8 @@ static u4 dh_plus(u4 const edx, u1 const n)
     return (edx & 0xFFFF00FF) | (u4)(u1)((u1)(edx >> 8) + n) << 8;
 }
 
-static u4 peek32(u1 const* const p)
-{
-    u4 v;
-    memcpy(&v, p, sizeof v);
-    return v;
-}
+/* The SA-1 program as it sits in memory, little-endian. */
+static u4 peek32(u1 const* const p) { return ld32le(p); }
 
 // Idle-loop detection: these opcode words are the SA-1 spinning on a flag the
 // 65816 has not set yet, so the slot is skipped and only cycles are charged.
@@ -132,7 +129,7 @@ static u1 SA1IdleCharge(u1 const* const p)
         return 18;
     if (SA1SHb == 1)
         return 15;
-    if (*(u2 const*)(SA1BWPtr + 0x72A4) == 0 && peek32(p) == 0xF072A4AD)
+    if (ld16le(SA1BWPtr + 0x72A4) == 0 && peek32(p) == 0xF072A4AD)
         return 15;
     if (IRAM[0x72] == 0 && peek32(p) == 0xF03072AD)
         return 15;
@@ -186,8 +183,8 @@ static u4 SA1SwapEnter(zreg* const r)
                 SA1switchtonmi(&r[R_EDX], &esi);
             }
             r[R_ESI] = (zreg)esi;
-        } else if (--((u1*)&SA1DoIRQ)[3] == 0) {
-            ((u1*)&SA1DoIRQ)[0] |= 8;
+        } else if (--LE_BYTE(SA1DoIRQ, 3) == 0) {
+            LE_BYTE(SA1DoIRQ, 0) |= 8;
         }
     }
     return 1;

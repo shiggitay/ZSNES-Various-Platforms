@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "../unaligned.h"
+#include "../video/makevid.h"
 #include "zstest.h"
 
 typedef uint8_t u1;
@@ -58,6 +60,39 @@ static u4 mix(u4 h, const void* p, int n)
     return h;
 }
 
+/* The goldens were taken on x86, hashing these tables' bytes as they sit in
+   memory. Hash the multi-byte fields low byte first, so a big-endian host
+   computes the same numbers from the same values. */
+static u4 mix_le(u4 h, uint64_t const v, int const n)
+{
+    for (int i = 0; i < n; i++)
+        h = h * 16777619u ^ (u1)(v >> (8 * i));
+    return h;
+}
+
+static u4 mix_u2s(u4 h, u2 const* const p, int const n)
+{
+    for (int i = 0; i < n; i++)
+        h = mix_le(h, p[i], 2);
+    return h;
+}
+
+static u4 mix_spt(u4 h)
+{
+    size_t i;
+
+    for (i = 0; i + sizeof(SpriteInfo) <= sizeof spt; i += sizeof(SpriteInfo)) {
+        SpriteInfo r;
+        memcpy(&r, spt + i, sizeof r);
+        h = mix_le(h, r.x, 2);
+        h = mix_le(h, (uint64_t)(uintptr_t)r.obj, (int)sizeof r.obj);
+        h = mix_le(h, r.pal, 1);
+        h = mix_le(h, r.status, 1);
+    }
+    /* The table is not a whole number of 12-byte records on a 64-bit build. */
+    return mix(h, spt + i, (int)(sizeof spt - i));
+}
+
 static void setup(int t)
 {
     static const u1 sz[6] = { 1, 4, 16, 64, 2, 3 };
@@ -80,7 +115,7 @@ static void setup(int t)
     for (int i = 0; i < 65536; i++)
         vrambuf[i] = rnd();
     for (int i = 0; i < 2048; i++)
-        vidmemch4[i] = rnd();
+        st16le(&vidmemch4[i], (u2)rnd()); /* read back a byte at a time */
     sprprifix = 1;
     memset(sprlefttot, 0, 256);
     memset(sprleftpr, 0, 1024);
@@ -121,9 +156,9 @@ int main(void)
         hp = mix(hp, sprstart, 256);
         hp = mix(hp, sprtilecnt, 256);
         hp = mix(hp, sprend, 256);
-        hp = mix(hp, sprendx, sizeof sprendx);
-        hp = mix(hp, spt, sizeof spt);
-        hp = mix(hp, &addr2add, 4);
+        hp = mix_u2s(hp, sprendx, 256);
+        hp = mix_spt(hp);
+        hp = mix_le(hp, addr2add, 4);
         vcache4b = vc4;
         cachesprites();
         hc = mix(hc, vc4, sizeof vc4);

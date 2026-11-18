@@ -3,6 +3,7 @@
 #include "../cpu/memtable.h"
 #include "../init.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "c_gui.h"
 #include "c_guiwindp.h"
 #include "cfg.h"
@@ -130,15 +131,15 @@ void CheatCodeSearchProcess(void)
             break;
         case 1:
             ecx -= 1;
-            SearchMacroB(*(u2 const*)edi, *(u2 const*)esi);
+            SearchMacroB(ld16le(edi), ld16le(esi));
             break;
         case 2:
             ecx -= 2;
-            SearchMacroB(*(u4 const*)edi & 0x00FFFFFF, *(u2 const*)esi & 0x00FFFFFF);
+            SearchMacroB(ld32le(edi) & 0x00FFFFFF, ld16le(esi) & 0x00FFFFFF);
             break;
         case 3:
             ecx -= 3;
-            SearchMacroB(*(u4 const*)edi, *(u4 const*)esi);
+            SearchMacroB(ld32le(edi), ld32le(esi));
             break;
         }
         CopyRamToggle = 1;
@@ -154,7 +155,7 @@ void CheatCodeSearchProcess(void)
         u1 bl = 0xFE;
         u1 bh = 0x01;
         do {
-            u4 const eax = *(u4 const*)esi & edx; // XXX unaligned
+            u4 const eax = ld32le(esi) & edx; // XXX unaligned
             if (eax == CSCurValue) {
                 if (!(edi[16384] & bh))
                     goto failedfind;
@@ -223,11 +224,11 @@ static void DisableCheatCode(u1* const esi)
 {
     esi[0] |= 0x04;
     if (esi[0] & 0x01) {
-        u4 const ecx = *(u4 const*)(esi + 2) & 0x00FFFFFF; // XXX unaligned
+        u4 const ecx = ld32le((esi + 2)) & 0x00FFFFFF; // XXX unaligned
         if (rom_cheat_in_range(ecx))
             romdata[ecx] = esi[5];
     } else if (!(esi[0] & 0x80) && !(esi[-28] & 0x80)) {
-        memw8(esi[4], *(u2 const*)(esi + 2), esi[5]);
+        memw8(esi[4], ld16le((esi + 2)), esi[5]);
     }
 }
 
@@ -247,7 +248,7 @@ static void EnableCheatCode(u1* const esi)
     esi[0] &= 0xFB;
     if (esi[0] & 0x01) {
         u1 const al = esi[1];
-        u4 const ecx = *(u4 const*)(esi + 2) & 0x00FFFFFF; // XXX unaligned
+        u4 const ecx = ld32le((esi + 2)) & 0x00FFFFFF; // XXX unaligned
         /* Into the entry, not the ROM: see EnableCheatCodeNoPrevMod. */
         if (rom_cheat_in_range(ecx)) {
             u1 const bl = romdata[ecx];
@@ -256,7 +257,7 @@ static void EnableCheatCode(u1* const esi)
         }
     } else {
         u1 const al = esi[1];
-        u2 const cx = *(u2 const*)(esi + 2);
+        u2 const cx = ld16le((esi + 2));
         u1 const bl = esi[4];
         esi[5] = memr8(bl, cx);
         if (!(esi[0] & 0x80) && !(esi[-28] & 0x80))
@@ -336,7 +337,7 @@ void EnableCheatCodeNoPrevMod(u1* const esi)
     esi[0] &= 0xFB;
     if (esi[0] & 0x01) {
         u1 const al = esi[1];
-        u4 const ecx = *(u4 const*)(esi + 2) & 0x00FFFFFF; // XXX unaligned
+        u4 const ecx = ld32le((esi + 2)) & 0x00FFFFFF; // XXX unaligned
         /* Into the entry, not the ROM: a shadowing `esi = romdata` here sent
            the byte being saved to romdata[5] instead. */
         if (rom_cheat_in_range(ecx)) {
@@ -345,7 +346,7 @@ void EnableCheatCodeNoPrevMod(u1* const esi)
             esi[5] = bl;
         }
     } else if (!(esi[0] & 0x80) && !(esi[-28] & 0x80)) {
-        memw8(esi[4], *(u2 const*)(esi + 2), esi[1]);
+        memw8(esi[4], ld16le((esi + 2)), esi[1]);
     }
 }
 

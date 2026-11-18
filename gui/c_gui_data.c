@@ -1,6 +1,7 @@
 /* C port of gui.asm + guiwindp.inc data (GUI state, menus, paths).
    Byte-exact with the original NASM data; generated then verified. */
 #include "../types.h"
+#include "../unaligned.h"
 
 #include "gui.h"
 
@@ -72,7 +73,16 @@ char* GUICustomResTextPtr[2] = { GUICustomX, GUICustomY };
 s4 GUIDClCEntry;
 u4 GUIDClCWin;
 u4 GUIDClickTL;
-char GUIDumpingTab[16] = { 0, 0, 0, 0, 1, 0, 0, 0, 68, 85, 77, 80, 73, 78, 71, 0 };
+/* A tab strip starts with two dwords - the selected tab and the count - that
+   the GUI reads as u4 (gui/guiwindp.h), then the labels. Spell the dwords in
+   host byte order so that read sees the same number on any host. */
+#if ZSNES_BIG_ENDIAN
+#define TABDW(v) 0, 0, 0, v
+#else
+#define TABDW(v) v, 0, 0, 0
+#endif
+
+char GUIDumpingTab[16] = { TABDW(0), TABDW(1), 68, 85, 77, 80, 73, 78, 71, 0 };
 u1 GUIHold;
 u4 GUIHoldXlimL;
 u4 GUIHoldXlimR;
@@ -82,19 +92,19 @@ u4 GUIHoldx;
 u4 GUIHoldxm;
 u4 GUIHoldy;
 u4 GUIHoldym;
-char GUIInputTabs[23] = { 1, 0, 0, 0, 5, 0, 0, 0, 35, 49, 0, 35, 50, 0, 35, 51, 0, 35, 52, 0, 35, 53, 0 };
+char GUIInputTabs[23] = { TABDW(1), TABDW(5), 35, 49, 0, 35, 50, 0, 35, 51, 0, 35, 52, 0, 35, 53, 0 };
 u1 GUILDFlash;
 u4 GUIMenuD;
 u4 GUIMenuL;
 u4 GUIMenuR;
-char GUIMovieTabs[17] = { 1, 0, 0, 0, 1, 0, 0, 0, 67, 79, 78, 84, 82, 79, 76, 83, 0 };
+char GUIMovieTabs[17] = { TABDW(1), TABDW(1), 67, 79, 78, 84, 82, 79, 76, 83, 0 };
 char* GUIMovieTextPtr[1] = { GUIMovieForcedText };
 u4 GUINCStA[3];
 u1 GUINumCombo;
 u1 GUIOn;
 u1 GUIOn2;
-char GUIOptionTabs[19] = { 1, 0, 0, 0, 2, 0, 0, 0, 66, 65, 83, 73, 67, 0, 77, 79, 82, 69, 0 };
-char GUIPathTabs[32] = { 1, 0, 0, 0, 3, 0, 0, 0, 71, 69, 78, 69, 82, 65, 76, 0, 77, 79, 82, 69, 0, 66, 73, 79, 83, 43, 67, 65, 82, 84, 83, 0 };
+char GUIOptionTabs[19] = { TABDW(1), TABDW(2), 66, 65, 83, 73, 67, 0, 77, 79, 82, 69, 0 };
+char GUIPathTabs[32] = { TABDW(1), TABDW(3), 71, 69, 78, 69, 82, 65, 76, 0, 77, 79, 82, 69, 0, 66, 73, 79, 83, 43, 67, 65, 82, 84, 83, 0 };
 char* GUIPathsTab1Ptr[4] = { SRAMPath, SStatePath, MoviePath, IPSPath };
 char* GUIPathsTab2Ptr[5] = { SnapPath, SPCPath, CHTPath, ComboPath, INPPath };
 char* GUIPathsTab3Ptr[4] = { BSXPath, STPath, GNextPath, SGPath };
@@ -105,13 +115,13 @@ u4 GUIScrolTim1;
 u4 GUIScrolTim2;
 /* Active tab, tab count, then the labels packed one after another.
    GUIDrawTabs reads the first two as dwords. */
-char GUIVideoTabs[40] = { 1, 0, 0, 0, 4, 0, 0, 0,
+char GUIVideoTabs[40] = { TABDW(1), TABDW(4),
     'M', 'O', 'D', 'E', 'S', 0,
     'F', 'I', 'L', 'T', 'E', 'R', 'S', 0,
     'R', 'E', 'T', 'R', 'O', 0,
     'M', 'O', 'N', 'I', 'T', 'O', 'R', 'S', 0,
     0, 0, 0 };
-char GUIVntscTab[22] = { 0, 0, 0, 0, 2, 0, 0, 0, 78, 84, 83, 67, 0, 65, 68, 86, 0, 0, 0, 0, 0, 0 };
+char GUIVntscTab[22] = { TABDW(0), TABDW(2), 78, 84, 83, 67, 0, 65, 68, 86, 0, 0, 0, 0, 0, 0 };
 u4 GUIccombcursloc;
 u4 GUIccomblcursloc;
 u4 GUIccombviewloc;

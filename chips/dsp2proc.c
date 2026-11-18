@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "../cpu/memseam.h"
+#include "../unaligned.h"
 #include "regabi.h"
 
 #define DSP2F_HALT 1u
@@ -577,10 +578,10 @@ uint8_t c_DSP2Read8b(uint32_t addr)
 
     if (dsp2state & DSP2F_AUTO_BUFFER_SHIFT) {
         /* arithmetic shift of first dword */
-        int32_t v;
-        memcpy(&v, dsp2buffer, 4);
+        /* The buffer is read out a byte at a time, low byte first. */
+        int32_t v = (int32_t)ld32le(dsp2buffer);
         v >>= 8;
-        memcpy(dsp2buffer, &v, 4);
+        st32le(dsp2buffer, (uint32_t)v);
     }
 
     return result;
@@ -773,7 +774,7 @@ void c_DSP2Write8b(uint32_t addr, uint8_t val)
         dsp2buffer[idx] = (uint8_t)dsp2input;
         if (idx == 3) {
             uint32_t product = (uint32_t)dsp2buffer[0] * (uint32_t)dsp2buffer[2];
-            memcpy(dsp2buffer, &product, 4);
+            st32le(dsp2buffer, product);
             dsp2state |= DSP2F_AUTO_BUFFER_SHIFT;
         }
         goto done;

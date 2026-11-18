@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 
 #include "../c_init.h"
 #include "../c_vcache.h"
@@ -74,24 +75,14 @@ void SfxVblankCatchup(void);
 #define GETB(v) ((u1)(v))
 #define SETB(v, x) ((v) = ((v) & ~0xFFu) | (u1)(x))
 
-static u4 peek32(u1 const* const p)
-{
-    u4 v;
-    memcpy(&v, p, sizeof v);
-    return v;
-}
+/* SNES memory - WRAM, IRAM, BW-RAM, the cheat list as loaded - is little-endian
+   whatever the host, and the constants compared against it below are written
+   that way. */
+static u4 peek32(u1 const* const p) { return ld32le(p); }
 
-static u2 peek16(u1 const* const p)
-{
-    u2 v;
-    memcpy(&v, p, sizeof v);
-    return v;
-}
+static u2 peek16(u1 const* const p) { return ld16le(p); }
 
-static void poke16(u1* const p, u2 const v)
-{
-    memcpy(p, &v, sizeof v);
-}
+static void poke16(u1* const p, u2 const v) { st16le(p, v); }
 
 /* rol eax,16 */
 static u4 rol16(u4 const v)
@@ -267,14 +258,14 @@ enum exec_act c_cpuover(zreg* const r)
     if (!(SA1DoIRQ & 4))
         goto nosa1;
     SA1DoIRQ &= 0xFFFFFFFBu;
-    ((u1*)&SA1Message)[3] = ((u1*)&SA1Message)[1];
+    LE_BYTE(SA1Message, 3) = LE_BYTE(SA1Message, 1);
     SA1IRQExec |= 1;
     goto virq;
 
 nosa1:
     if ((SA1IRQEnable & 0x20) && (SA1DoIRQ & 8)) {
         SA1DoIRQ &= 0xFFFFFFF7u;
-        ((u1*)&SA1Message)[3] = ((u1*)&SA1Message)[1];
+        LE_BYTE(SA1Message, 3) = LE_BYTE(SA1Message, 1);
         SA1IRQExec |= 2;
         add_dh(r, 10);
         goto virq;

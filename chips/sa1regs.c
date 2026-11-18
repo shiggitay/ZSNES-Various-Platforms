@@ -33,7 +33,8 @@ extern uint8_t IRAM[2049] ASM_ALIGNED(4); /* defined in the asm state block abov
 extern uint8_t CurrentExecSA1; /* sa1proc.asm */
 extern uint16_t curypos; /* current scanline */
 
-#define BYTE(v, n) (((uint8_t*)&(v))[n])
+#include "../unaligned.h"
+#define BYTE(v, n) LE_BYTE(v, n)
 
 REGABI_REG_READ8(sa12300r);
 uint8_t c_sa12300r(void)
@@ -76,14 +77,14 @@ REGABI_REG_READ8(sa12304r);
 uint8_t c_sa12304r(void)
 {
     if (BYTE(SA1TimerSet, 0) & 0x80)
-        return (uint8_t)(*(uint16_t*)((uint8_t*)&SA1TimerCount + 1) >> 1);
+        return (uint8_t)((uint16_t)(SA1TimerCount >> 8) >> 1); /* bytes 1-2 as a word */
     return BYTE(curypos, 0);
 }
 REGABI_REG_READ8(sa12305r);
 uint8_t c_sa12305r(void)
 {
     if (BYTE(SA1TimerSet, 0) & 0x80)
-        return (uint8_t)((*(uint16_t*)((uint8_t*)&SA1TimerCount + 2) >> 1) & 1);
+        return (uint8_t)(((uint16_t)(SA1TimerCount >> 16) >> 1) & 1); /* bytes 2-3 */
     return BYTE(curypos, 1);
 }
 
@@ -468,7 +469,7 @@ uint8_t c_sa1230Cr(void)
     uint8_t bank = BYTE(VarLenAddr, 2);
     uint16_t addr16 = (uint16_t)VarLenAddr;
     uint8_t* base = (addr16 & 0x8000) ? snesmmap[bank] : snesmap2[bank];
-    uint32_t val = *(uint32_t*)(base + addr16) >> BYTE(VarLenBarrel, 1);
+    uint32_t val = ld32le(base + addr16) >> BYTE(VarLenBarrel, 1);
     if (BYTE(VarLenBarrel, 2) & 0x80) {
         BYTE(VarLenBarrel, 0) += BYTE(VarLenBarrel, 3);
         if (BYTE(VarLenBarrel, 0) > 16) {
@@ -485,7 +486,7 @@ uint8_t c_sa1230Dr(void)
     uint8_t bank = BYTE(VarLenAddrB, 2);
     uint16_t addr16 = (uint16_t)VarLenAddrB;
     uint8_t* base = (addr16 & 0x8000) ? snesmmap[bank] : snesmap2[bank];
-    uint32_t val = *(uint32_t*)(base + addr16) >> BYTE(VarLenBarrel, 1);
+    uint32_t val = ld32le(base + addr16) >> BYTE(VarLenBarrel, 1);
     if (BYTE(VarLenBarrel, 2) & 0x80) {
         BYTE(VarLenBarrel, 1) += BYTE(VarLenBarrel, 3);
         if (BYTE(VarLenBarrel, 1) > 16) {

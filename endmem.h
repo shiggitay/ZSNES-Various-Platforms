@@ -2,6 +2,7 @@
 #define ENDMEM_H
 
 #include "types.h"
+#include "unaligned.h"
 
 extern eop* Bank0datr16[256];
 extern eop* Bank0datr8[256];
@@ -46,6 +47,10 @@ extern u1 sprleftpr2[256]; // sprites left for priority 2
 extern u1 sprleftpr3[256]; // sprites left for priority 3
 extern u1 sprleftpr[256]; // sprites left for priority 0
 extern u4 sprleftpr_b[256]; // sprleftpr..sprleftpr3 as dwords
+/* The single-priority flag the newgfx sprite pass keeps in sprleftpr_b: bit 7
+   of the priority-3 byte, i.e. of the fourth byte of the line in memory. That
+   is the dword's top bit on x86 and its bottom byte on a big-endian host. */
+#define SPRLEFT_SINGLE (ZSNES_BIG_ENDIAN ? 0x00000080u : 0x80000000u)
 extern u1 sprlefttot[256]; // total sprites left
 extern u1 sprpriodata[288];
 extern u1 sprstart[256];

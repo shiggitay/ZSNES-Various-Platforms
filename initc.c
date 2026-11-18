@@ -33,6 +33,7 @@
 #include "input.h"
 #include "length.h"
 #include "ui.h"
+#include "unaligned.h"
 #include "video/procvid.h"
 #include "zpath.h"
 
@@ -1850,21 +1851,21 @@ void SetIRQVectors(void)
         memcpy(ROM + infoloc + 36 + 24, "\0x80\0xFF", 2);
     }
 
-    memcpy(&copv, ROM + infoloc + 0x24, 2);
-    memcpy(&brkv, ROM + infoloc + 0x26, 2);
-    memcpy(&abortv, ROM + infoloc + 0x28, 2);
-    memcpy(&nmiv, ROM + infoloc + 0x2A, 2);
-    memcpy(&nmiv2, ROM + infoloc + 0x2A, 2);
-    memcpy(&irqv, ROM + infoloc + 0x2E, 2);
-    memcpy(&irqv2, ROM + infoloc + 0x2E, 2);
+    copv = ld16le(ROM + infoloc + 0x24);
+    brkv = ld16le(ROM + infoloc + 0x26);
+    abortv = ld16le(ROM + infoloc + 0x28);
+    nmiv = ld16le(ROM + infoloc + 0x2A);
+    nmiv2 = ld16le(ROM + infoloc + 0x2A);
+    irqv = ld16le(ROM + infoloc + 0x2E);
+    irqv2 = ld16le(ROM + infoloc + 0x2E);
 
     // 8-bit and reset
-    memcpy(&copv8, ROM + infoloc + 0x34, 2);
-    memcpy(&abortv8, ROM + infoloc + 0x38, 2);
-    memcpy(&nmiv8, ROM + infoloc + 0x3A, 2);
-    memcpy(&resetv, ROM + infoloc + 0x3C, 2);
-    memcpy(&brkv8, ROM + infoloc + 0x3E, 2);
-    memcpy(&irqv8, ROM + infoloc + 0x3E, 2);
+    copv8 = ld16le(ROM + infoloc + 0x34);
+    abortv8 = ld16le(ROM + infoloc + 0x38);
+    nmiv8 = ld16le(ROM + infoloc + 0x3A);
+    resetv = ld16le(ROM + infoloc + 0x3C);
+    brkv8 = ld16le(ROM + infoloc + 0x3E);
+    irqv8 = ld16le(ROM + infoloc + 0x3E);
 
     if (yesoutofmemory) // failed ?
     {

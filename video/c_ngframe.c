@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "makevid.h" /* SpriteInfo */
 
 enum { R_EDI,
@@ -220,12 +221,12 @@ static void bg_pass(u4 const layer, void (*const lineproc)(zreg*),
 /* Sprites in modes 0 and 1 only, or in 2..7 only, or unconditionally. The
    modeused test is a dword read of a byte table: the first covers modes 0..3
    and the second 4..7. */
-static int sprites_01(void) { return (rdd(modeused) & 0x00000101u) != 0; }
+static int sprites_01(void) { return (ld32le(modeused) & 0x00000101u) != 0; }
 
 static int sprites_27(void)
 {
-    return (rdd(modeused) & 0x01010000u) != 0
-        || (rdd(modeused + 4) & 0x01010101u) != 0;
+    return (ld32le(modeused) & 0x01010000u) != 0
+        || (ld32le(modeused + 4) & 0x01010101u) != 0;
 }
 
 static void clear_counters(void)

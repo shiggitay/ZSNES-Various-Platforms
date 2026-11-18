@@ -116,6 +116,27 @@ struct dirent_info* readdir_info(z_DIR* dir)
 #else
 #include <unistd.h>
 
+#if defined(__GLIBC__) && (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 4))
+#include <stdio.h>
+/* No fstatat before glibc 2.4 (Yellow Dog Linux 5 and 6 have 2.3/2.5); stat
+   the entry through the directory's descriptor in /proc instead. */
+static int stat_in_dir(z_DIR* const dir, char const* const name, struct stat* const st)
+{
+    char path[PATH_MAX];
+
+    if (snprintf(path, sizeof path, "/proc/self/fd/%d/%s", dirfd(dir), name) >= (int)sizeof path) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return stat(path, st);
+}
+#else
+static int stat_in_dir(z_DIR* const dir, char const* const name, struct stat* const st)
+{
+    return fstatat(dirfd(dir), name, st, 0);
+}
+#endif
+
 struct dirent_info* readdir_info(z_DIR* dir)
 {
     static struct dirent_info info;
@@ -127,7 +148,7 @@ struct dirent_info* readdir_info(z_DIR* dir)
 
     while (!infop && (entry = readdir(dir)) != NULL) {
         struct stat stat_buffer;
-        if (!fstatat(dirfd(dir), entry->d_name, &stat_buffer, 0)) {
+        if (!stat_in_dir(dir, entry->d_name, &stat_buffer)) {
             info.name = entry->d_name;
             info.size = stat_buffer.st_size;
             info.mode = stat_buffer.st_mode;

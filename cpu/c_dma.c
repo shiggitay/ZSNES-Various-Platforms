@@ -79,10 +79,10 @@ static void transdmappu2cpu(u1 const al, DMAInfo* const esi)
     eop* const regptrc = REGPTR(0x2100 + esi->destination + edi[2]); // PPU memory - 21xx
     eop* const regptrd = REGPTR(0x2100 + esi->destination + edi[3]); // PPU memory - 21xx
 
-    u2 const dx = esi->count;
+    u2 const dx = DMA_GET(esi, count);
     u1 const curbank = esi->bank;
-    u2 cx = esi->offset;
-    esi->count = 0;
+    u2 cx = DMA_GET(esi, offset);
+    DMA_SET(esi, count, 0);
 
     // Do loop
     u4 edx = dx != 0 ? dx : 65536;
@@ -113,7 +113,7 @@ static void transdmappu2cpu(u1 const al, DMAInfo* const esi)
         }
     }
 
-    esi->offset = cx;
+    DMA_SET(esi, offset, cx);
 }
 
 static inline void write_reg(eop* const reg, u2 const address, u1 const val)
@@ -165,10 +165,10 @@ static void transdma(DMAInfo* const esi)
     eop* const regptrc = REGPTW(0x2100 + esi->destination + edi[2]); // PPU memory - 21xx
     eop* const regptrd = REGPTW(0x2100 + esi->destination + edi[3]); // PPU memory - 21xx
 
-    u2 const dx = esi->count;
+    u2 const dx = DMA_GET(esi, count);
     u1 const curbank = esi->bank;
-    u2 cx = esi->offset;
-    esi->count = 0;
+    u2 cx = DMA_GET(esi, offset);
+    DMA_SET(esi, count, 0);
 
     // Do loop
     u4 edx = dx != 0 ? dx : 65536;
@@ -199,7 +199,7 @@ static void transdma(DMAInfo* const esi)
         }
     }
 
-    esi->offset = cx;
+    DMA_SET(esi, offset, cx);
     AddrNoIncr = 0;
 }
 
@@ -215,8 +215,8 @@ void c_reg420Bw(u1 const al)
 void setuphdma(u4 const ah, HDMAInfo* const edx, DMAInfo* const esi)
 {
     // transfer old address to new address
-    u2 const ax = esi->offset;
-    esi->hdma_table = ax;
+    u2 const ax = DMA_GET(esi, offset);
+    DMA_SET(esi, hdma_table, ax);
     edx->addr_inc = ax;
 
     // Get address order to be written
@@ -321,7 +321,8 @@ static void hdmatype2indirect(HDMAInfo const* const edx, DMAInfo* const esi)
     u1 tempdecr = edx->count;
     u4 n = 0;
     do {
-        u2 const cx = esi->count++; // increment/decrement/keep pointer location
+        u2 const cx = DMA_GET(esi, count);
+        DMA_SET(esi, count, cx + 1); // increment/decrement/keep pointer location
         u1 const al = memr8(esi->hdma_bank, cx);
         write_reg(edx->dst_reg[n], cx, al);
     } while (++n, --tempdecr != 0);
@@ -338,10 +339,10 @@ static void indirectaddr(u4 const ah, HDMAInfo* const edx, DMAInfo* const esi)
 
         u1 const al = memr8(esi->bank, edx->addr_inc++);
         esi->hdma_line_counter = al;
-        esi->count = memr16(esi->bank, edx->addr_inc);
+        DMA_SET(esi, count, memr16(esi->bank, edx->addr_inc));
         if (al == 0) {
             nexthdma ^= ah;
-            esi->hdma_table = edx->addr_inc;
+            DMA_SET(esi, hdma_table, edx->addr_inc);
             return;
         }
 
@@ -350,7 +351,7 @@ static void indirectaddr(u4 const ah, HDMAInfo* const edx, DMAInfo* const esi)
 
         hdma_charge_channel(edx->count);
         u1 tempdecr = edx->count;
-        u2 cx = esi->count; // increment/decrement/keep pointer location
+        u2 cx = DMA_GET(esi, count); // increment/decrement/keep pointer location
         u4 n = 0;
         do {
             u1 const al = memr8(esi->hdma_bank, cx);
@@ -362,7 +363,7 @@ static void indirectaddr(u4 const ah, HDMAInfo* const edx, DMAInfo* const esi)
         return;
     }
 
-    esi->hdma_table = edx->addr_inc;
+    DMA_SET(esi, hdma_table, edx->addr_inc);
     --esi->hdma_line_counter;
 }
 
@@ -377,7 +378,7 @@ static void hdmatype2(HDMAInfo* const edx, DMAInfo* const esi)
         write_reg(edx->dst_reg[n], cx, al);
     } while (++n, --tempdecr != 0);
 
-    esi->hdma_table = edx->addr_inc;
+    DMA_SET(esi, hdma_table, edx->addr_inc);
     --esi->hdma_line_counter;
 }
 
@@ -398,7 +399,7 @@ static void dohdma(u4 const ah, HDMAInfo* const edx, DMAInfo* const esi)
 
         if (al == 0) {
             nexthdma ^= ah;
-            esi->hdma_table = edx->addr_inc;
+            DMA_SET(esi, hdma_table, edx->addr_inc);
             return;
         }
 
@@ -419,7 +420,7 @@ static void dohdma(u4 const ah, HDMAInfo* const edx, DMAInfo* const esi)
         return;
     }
 
-    esi->hdma_table = edx->addr_inc;
+    DMA_SET(esi, hdma_table, edx->addr_inc);
     --esi->hdma_line_counter;
 }
 

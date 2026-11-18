@@ -26,6 +26,7 @@
 #include "../gblhdr.h"
 #include "../net/netplay.h"
 #include "../ui.h"
+#include "../unaligned.h"
 #include "../ver.h"
 #include "../zmovie.h"
 #include "../zpath.h"
@@ -1632,7 +1633,7 @@ static void Cheatmodeview(void) // View ResultsWindow
             GUIDisplayTextG(13, CheatSearchXPos, CheatSearchYPos, GUICSrcTextG1);
 
             char* const esi = GUICSrcTextG1;
-            u4 const eax = *(u4 const*)(wramdata + CSCurEntry); // XXX ugly cast
+            u4 const eax = ld32le((wramdata + CSCurEntry)); // XXX ugly cast
             if (CheatSrcByteBase != 0) {
                 converthex(esi, eax, CheatSrcByteSize + 1);
             } else {

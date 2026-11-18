@@ -6,6 +6,7 @@
 
 #include "../asmdata.h"
 #include "../types.h"
+#include "../unaligned.h"
 
 extern void SPC7110initC(void); /* 7110emu.c */
 void SPC7110RTCReset(void); /* Stage 4: seed the Epson RTC from the host clock */
@@ -120,10 +121,10 @@ extern uint32_t SPCMulRes, SPCSignedVal;
 /* Byte view of a 32-bit register (little-endian, as the asm assumed). */
 #define SPC_MATH_R(name, base, idx) \
     REGABI_REG_READ8(name);         \
-    uint8_t c_##name(void) { return ((uint8_t*)&base)[idx]; }
+    uint8_t c_##name(void) { return LE_BYTE(base, idx); }
 #define SPC_MATH_W(name, base, idx) \
     REGABI_REG_WRITE8(name);        \
-    void c_##name(uint8_t al) { ((uint8_t*)&base)[idx] = al; }
+    void c_##name(uint8_t al) { LE_BYTE(base, idx) = al; }
 
 static void spc7110_multiply(void)
 {
@@ -138,8 +139,8 @@ static void spc7110_multiply(void)
 static void spc7110_set_remainder(uint16_t rem)
 {
     /* The asm stored only the low word, leaving SPCDivRes's upper bytes. */
-    ((uint8_t*)&SPCDivRes)[0] = (uint8_t)rem;
-    ((uint8_t*)&SPCDivRes)[1] = (uint8_t)(rem >> 8);
+    LE_BYTE(SPCDivRes, 0) = (uint8_t)rem;
+    LE_BYTE(SPCDivRes, 1) = (uint8_t)(rem >> 8);
 }
 
 static void spc7110_divide(void)
@@ -192,14 +193,14 @@ SPC_MATH_W(SPC4824w, SPCMultB, 0)
 REGABI_REG_WRITE8(SPC4825w);
 void c_SPC4825w(uint8_t al)
 {
-    ((uint8_t*)&SPCMultB)[1] = al;
+    LE_BYTE(SPCMultB, 1) = al;
     spc7110_multiply();
 }
 SPC_MATH_W(SPC4826w, SPCDivEnd, 0)
 REGABI_REG_WRITE8(SPC4827w);
 void c_SPC4827w(uint8_t al)
 {
-    ((uint8_t*)&SPCDivEnd)[1] = al;
+    LE_BYTE(SPCDivEnd, 1) = al;
     spc7110_divide();
 }
 REGABI_REG_WRITE8(SPC482Ew);
@@ -876,22 +877,21 @@ extern uint8_t *snesmmap[256], *snesmap2[256]; /* SNES memory map */
 REGABI_REG_READ8(SPC4810);
 uint8_t c_SPC4810(void)
 {
-    uint8_t* com = (uint8_t*)&SPCROMCom;
     uint8_t* p;
     uint8_t al;
     if (SPCCheckFix == 0)
         return 0;
     p = romdata + 0x100000 + SPCROMPtr;
-    if (com[0] & 2) {
+    if (LE_BYTE(SPCROMCom, 0) & 2) {
         p = (uint8_t*)((uintptr_t)p + SPCROMAdj);
         /* a 16-bit increment of a 32-bit slot: the high half must not carry */
         SPCROMAdj = (SPCROMAdj & 0xFFFF0000u) | (uint16_t)(SPCROMAdj + 1);
         return *p;
     }
     al = *p;
-    if (com[1] == 0)
+    if (LE_BYTE(SPCROMCom, 1) == 0)
         ROM_INDIRECT += 1; /* add 1 after the read */
-    else if (com[1] == 1)
+    else if (LE_BYTE(SPCROMCom, 1) == 1)
         ROM_INDIRECT += SPCROMInc; /* add 4816 after the read */
     return al;
 }
@@ -899,22 +899,21 @@ uint8_t c_SPC4810(void)
 REGABI_REG_READ8(SPC481A);
 uint8_t c_SPC481A(void)
 {
-    uint8_t* com = (uint8_t*)&SPCROMCom;
     uint8_t al;
     if (SPCCheckFix == 0)
         return 0;
     al = romdata[0x100000 + SPCROMPtr + (uint16_t)SPCROMAdj];
-    if (com[1] == 4)
+    if (LE_BYTE(SPCROMCom, 1) == 4)
         ROM_INDIRECT += SPCROMAdj; /* 16-bit 4814 add after 481A */
     return al;
 }
 
 #define SPC_BYTE_R(name, base, idx) \
     REGABI_REG_READ8(name);         \
-    uint8_t c_##name(void) { return ((uint8_t*)&base)[idx]; }
+    uint8_t c_##name(void) { return LE_BYTE(base, idx); }
 #define SPC_BYTE_W(name, base, idx) \
     REGABI_REG_WRITE8(name);        \
-    void c_##name(uint8_t al) { ((uint8_t*)&base)[idx] = al; }
+    void c_##name(uint8_t al) { LE_BYTE(base, idx) = al; }
 SPC_BYTE_R(SPC4811, SPCROMPtr, 0)
 SPC_BYTE_R(SPC4812, SPCROMPtr, 1)
 SPC_BYTE_R(SPC4813, SPCROMPtr, 2)
@@ -927,8 +926,8 @@ SPC_BYTE_R(SPC4818, SPCROMCom, 0)
 REGABI_REG_WRITE8(SPC4811w);
 void c_SPC4811w(uint8_t al)
 {
-    ((uint8_t*)&SPCROMPtr)[0] = al;
-    ((uint8_t*)&SPCCheckFix)[0] = 1;
+    LE_BYTE(SPCROMPtr, 0) = al;
+    LE_BYTE(SPCCheckFix, 0) = 1;
 }
 SPC_BYTE_W(SPC4812w, SPCROMPtr, 1)
 SPC_BYTE_W(SPC4813w, SPCROMPtr, 2)
@@ -936,11 +935,9 @@ SPC_BYTE_W(SPC4813w, SPCROMPtr, 2)
 REGABI_REG_WRITE8(SPC4814w);
 void c_SPC4814w(uint8_t al)
 {
-    uint8_t* com = (uint8_t*)&SPCROMCom;
-    uint8_t* adj = (uint8_t*)&SPCROMAdj;
-    adj[0] = al;
-    if (com[1] == 2) { /* 8-bit 4814 add */
-        int32_t inc = (com[0] & 0x08) ? (int8_t)adj[0] : (int32_t)(uint8_t)adj[0];
+    LE_BYTE(SPCROMAdj, 0) = al;
+    if (LE_BYTE(SPCROMCom, 1) == 2) { /* 8-bit 4814 add */
+        int32_t inc = (LE_BYTE(SPCROMCom, 0) & 0x08) ? (int8_t)LE_BYTE(SPCROMAdj, 0) : (int32_t)(uint8_t)LE_BYTE(SPCROMAdj, 0);
         ROM_INDIRECT += (uint32_t)inc;
     }
 }
@@ -948,11 +945,9 @@ void c_SPC4814w(uint8_t al)
 REGABI_REG_WRITE8(SPC4815w);
 void c_SPC4815w(uint8_t al)
 {
-    uint8_t* com = (uint8_t*)&SPCROMCom;
-    uint8_t* adj = (uint8_t*)&SPCROMAdj;
-    adj[1] = al;
-    *(uint16_t*)&adj[2] = ((com[0] & 0x08) && (adj[1] & 0x80)) ? 0xFFFF : 0;
-    if (com[1] == 3) /* 16-bit 4814 add */
+    LE_BYTE(SPCROMAdj, 1) = al;
+    SPCROMAdj = (SPCROMAdj & 0xFFFFu) | (uint32_t)(((LE_BYTE(SPCROMCom, 0) & 0x08) && (LE_BYTE(SPCROMAdj, 1) & 0x80)) ? 0xFFFF : 0) << 16;
+    if (LE_BYTE(SPCROMCom, 1) == 3) /* 16-bit 4814 add */
         ROM_INDIRECT += SPCROMAdj;
 }
 
@@ -961,29 +956,24 @@ SPC_BYTE_W(SPC4816w, SPCROMInc, 0)
 REGABI_REG_WRITE8(SPC4817w);
 void c_SPC4817w(uint8_t al)
 {
-    uint8_t* com = (uint8_t*)&SPCROMCom;
-    uint8_t* inc = (uint8_t*)&SPCROMInc;
-    inc[1] = al;
-    *(uint16_t*)&inc[2] = ((com[0] & 0x04) && (inc[1] & 0x40)) ? 0xFFFF : 0;
+    LE_BYTE(SPCROMInc, 1) = al;
+    SPCROMInc = (SPCROMInc & 0xFFFFu) | (uint32_t)(((LE_BYTE(SPCROMCom, 0) & 0x04) && (LE_BYTE(SPCROMInc, 1) & 0x40)) ? 0xFFFF : 0) << 16;
 }
 
 REGABI_REG_WRITE8(SPC4818w);
 void c_SPC4818w(uint8_t al)
 {
-    uint8_t* com = (uint8_t*)&SPCROMCom;
-    uint8_t* adj = (uint8_t*)&SPCROMAdj;
-    uint8_t* inc = (uint8_t*)&SPCROMInc;
-    com[0] = al;
-    *(uint16_t*)&adj[2] = ((com[0] & 0x08) && (adj[1] & 0x80)) ? 0xFFFF : 0;
-    *(uint16_t*)&inc[2] = ((com[0] & 0x04) && (inc[1] & 0x40)) ? 0xFFFF : 0;
-    SPCROMtoI = (uintptr_t)((com[0] & 0x10) ? &SPCROMAdj : &SPCROMPtr);
+    LE_BYTE(SPCROMCom, 0) = al;
+    SPCROMAdj = (SPCROMAdj & 0xFFFFu) | (uint32_t)(((LE_BYTE(SPCROMCom, 0) & 0x08) && (LE_BYTE(SPCROMAdj, 1) & 0x80)) ? 0xFFFF : 0) << 16;
+    SPCROMInc = (SPCROMInc & 0xFFFFu) | (uint32_t)(((LE_BYTE(SPCROMCom, 0) & 0x04) && (LE_BYTE(SPCROMInc, 1) & 0x40)) ? 0xFFFF : 0) << 16;
+    SPCROMtoI = (uintptr_t)((LE_BYTE(SPCROMCom, 0) & 0x10) ? &SPCROMAdj : &SPCROMPtr);
     if (al & 0x02) {
         if (al & 0x40)
-            com[1] = (al & 0x20) ? 4 : 3; /* 16-bit 4814 (after 481A / direct) */
+            LE_BYTE(SPCROMCom, 1) = (al & 0x20) ? 4 : 3; /* 16-bit 4814 (after 481A / direct) */
         else
-            com[1] = (al & 0x20) ? 2 : 0xFF; /* 8-bit 4814 / no offset add */
+            LE_BYTE(SPCROMCom, 1) = (al & 0x20) ? 2 : 0xFF; /* 8-bit 4814 / no offset add */
     } else {
-        com[1] = (al & 0x01) ? 1 : 0; /* add 4816 / add 1 after 4810 read */
+        LE_BYTE(SPCROMCom, 1) = (al & 0x01) ? 1 : 0; /* add 4816 / add 1 after 4810 read */
     }
 }
 
@@ -992,7 +982,7 @@ static void spc7110_bankswitch(int abyte, int bank, uint8_t al)
     uint32_t v = (uint8_t)(al + 1);
     uint8_t* base;
     int i;
-    ((uint8_t*)&SPC7110BankA)[abyte] = al;
+    LE_BYTEV(SPC7110BankA, abyte) = al;
     if (curromsize == 13) {
         while (v >= 5)
             v -= 4;

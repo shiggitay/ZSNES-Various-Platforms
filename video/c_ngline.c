@@ -8,7 +8,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "../endmem.h"
 #include "../types.h"
+#include "../unaligned.h"
 
 extern u2 curypos;
 extern u1 bgwinchange[256];
@@ -35,7 +37,6 @@ extern u2 BGPT1X[256], BGPT2X[256], BGPT3X[256], BGPT4X[256];
 extern u2 BGPT1Y[256], BGPT2Y[256], BGPT3Y[256], BGPT4Y[256];
 /* Read a dword at a time: the pairs A+B, C+D and X0+Y0 are adjacent words
    and the tables below are named for holding both. */
-extern u1 mode7A_dw[4], mode7C_dw[4], mode7X0_dw[4];
 extern u1 mode7set;
 extern u4 mode7ab[256], mode7cd[256], mode7xy[256];
 extern u4 cpalptrng;
@@ -59,12 +60,40 @@ extern void BuildWindow2(u4 y, u4 idx);
 extern u2 winlogicaval[256];
 extern u4 winboundary[256];
 
-/* The four bytes starting at each of these, under a name that covers all
-   four - see cpu/c_regsdata.c. The dword reads below are deliberate: the
-   assembly loaded a register from the byte and got its neighbours with it,
-   and the wide stores below pass them on. */
-extern u1 bg4ptr_dw[4], bg4objptr_dw[4];
-extern u1 scrnon_dw[4], forceblnk_dw[4], mode7set_dw[4], BG116x16t_dw[4], BG216x16t_dw[4], BG316x16t_dw[4], BG416x16t_dw[4], mosaicon_dw[4], mosaicsz_dw[4], interlval_dw[4], winl1_dw[4], winlogica_dw[4];
+/* The assembly loaded a dword from each of these registers and got its
+   neighbours in cpu/c_regsdata.c along with it, and the wide stores below
+   pass them on. The neighbours are named here and the dword is put together
+   from their values, which is what that load saw on x86; reading the bytes
+   in place would give a different number on a big-endian host, where the
+   halfword registers among them are stored the other way round. */
+extern u1 scrndist, KeyOnStA, mode7set, interlval;
+extern u1 winl1, winr1, winl2, winr2, winlogica, winlogicb, winenabm, winenabs;
+extern u1 BG116x16t, BG216x16t, BG316x16t, BG416x16t;
+extern u2 resolutn, mode7A, mode7B, mode7C, mode7D, mode7X0, mode7Y0, HIRQLoc;
+extern u2 bg1ptrb[4];
+extern u4 objptr, SPC700read;
+
+static u4 dw4(u1 const a, u1 const b, u1 const c, u1 const d)
+{
+    return (u4)a | (u4)b << 8 | (u4)c << 16 | (u4)d << 24;
+}
+
+static u4 dw_scrnon(void) { return scrnon | (u4)scrndist << 16 | (u4)(u1)resolutn << 24; }
+static u4 dw_forceblnk(void) { return forceblnk | objptr << 8; }
+static u4 dw_mosaicon(void) { return dw4(mosaicon, mosaicsz, (u1)bg1ptr[0], (u1)(bg1ptr[0] >> 8)); }
+static u4 dw_mosaicsz(void) { return dw4(mosaicsz, (u1)bg1ptr[0], (u1)(bg1ptr[0] >> 8), (u1)bg1ptr[1]); }
+static u4 dw_mode7set(void) { return dw4(mode7set, (u1)mode7A, (u1)(mode7A >> 8), (u1)mode7B); }
+static u4 dw_interlval(void) { return dw4(interlval, (u1)HIRQLoc, (u1)(HIRQLoc >> 8), KeyOnStA); }
+static u4 dw_winl1(void) { return dw4(winl1, winr1, winl2, winr2); }
+static u4 dw_winlogica(void) { return dw4(winlogica, winlogicb, winenabm, winenabs); }
+static u4 dw_pair(u2 const lo, u2 const hi) { return lo | (u4)hi << 16; }
+/* BGn16x16t are four consecutive bytes with SPC700read after them. */
+static u4 dw_16x16t(u4 const n)
+{
+    u1 const b[7] = { BG116x16t, BG216x16t, BG316x16t, BG416x16t,
+        (u1)SPC700read, (u1)(SPC700read >> 8), (u1)(SPC700read >> 16) };
+    return dw4(b[n], b[n + 1], b[n + 2], b[n + 3]);
+}
 
 /* Store a word and flag the layer if the line above differed. The index is
    signed on purpose: on line 0 the assembly compared against the dword before
@@ -78,10 +107,13 @@ static void recw(u2* const tab, u4 const y, u2 const v, u1* const chg)
 }
 
 /* The pointer tables are written a dword at a time but compared as a word, so
-   the store spills into the next line's entry and the compare ignores it. */
+   the store spills into the next line's entry and the compare ignores it. On
+   x86 the dword's low half lands in this line's entry and the high half in
+   the next one's; spelled out so a big-endian host does the same. */
 static void recd(u2* const tab, u4 const y, u4 const v, u1* const chg)
 {
-    memcpy(&tab[y], &v, 4);
+    tab[y] = (u2)v;
+    tab[y + 1] = (u2)(v >> 16);
     if (tab[(s4)y - 1] != (u2)v) {
         chg[y] = 1;
     }
@@ -95,21 +127,11 @@ static void recb(u1* const tab, u4 const y, u1 const v, u1* const chg)
     }
 }
 
-/* Several of these globals are a byte or a word wide but are *read* as a
-   dword, so whatever sits after them in memory rides along into the table. */
-static u4 dwr(void const* const p)
-{
-    u4 v;
-
-    memcpy(&v, p, 4);
-    return v;
-}
-
 /* A dword store into a byte table: three lines ahead are clobbered and then
-   rewritten when their turn comes. */
+   rewritten when their turn comes. Low byte first, as x86 stored it. */
 static void wide(u1* const tab, u4 const y, u4 const v)
 {
-    memcpy(tab + y, &v, 4);
+    st32le(tab + y, v);
 }
 
 void newengine16b_lines(void);
@@ -140,7 +162,7 @@ void newengine16b_lines(void)
 
     /* Which screens this line is on. The sub screen counts as filled unless
        colour maths has something to add to it. */
-    ebx = dwr(scrnon_dw);
+    ebx = dw_scrnon();
     {
         u1 const cl = (u1)((((scrnon & 0x1Fu) | 0x20u) & scaddtype) & 0x3Fu);
 
@@ -154,8 +176,8 @@ void newengine16b_lines(void)
         ebx &= 0xFFFF00FFu;
     }
     bgcmsung |= ebx;
-    memcpy(&BGMS1[y * 2], &ebx, 4);
-    if ((u2)dwr(&BGMS1[(s4)(y * 2u) - 2]) != (u2)ebx) {
+    st32le(&BGMS1[y * 2], ebx); /* main screen byte, then sub */
+    if (ld16le(&BGMS1[(s4)(y * 2u) - 2]) != (u2)ebx) {
         bgallchange[y] = 1;
     }
 
@@ -181,15 +203,15 @@ void newengine16b_lines(void)
     recb(BGMA, y, (u1)(bgmode & 7u), bgallchange);
     modeused[bgmode & 7u] = 1;
 
-    recd(BGOPT1, y, dwr(&bg1objptr[0]), bg1change);
-    recd(BGOPT2, y, dwr(&bg1objptr[1]), bg2change);
-    recd(BGOPT3, y, dwr(&bg1objptr[2]), bg3change);
-    recd(BGOPT4, y, dwr(bg4objptr_dw), bg4change);
+    recd(BGOPT1, y, dw_pair(bg1objptr[0], bg1objptr[1]), bg1change);
+    recd(BGOPT2, y, dw_pair(bg1objptr[1], bg1objptr[2]), bg2change);
+    recd(BGOPT3, y, dw_pair(bg1objptr[2], bg1objptr[3]), bg3change);
+    recd(BGOPT4, y, dw_pair(bg1objptr[3], bg1scrolx[0]), bg4change);
 
-    recd(BGPT1, y, dwr(&bg1ptr[0]), bg1change);
-    recd(BGPT2, y, dwr(&bg1ptr[1]), bg2change);
-    recd(BGPT3, y, dwr(&bg1ptr[2]), bg3change);
-    recd(BGPT4, y, dwr(bg4ptr_dw), bg4change);
+    recd(BGPT1, y, dw_pair(bg1ptr[0], bg1ptr[1]), bg1change);
+    recd(BGPT2, y, dw_pair(bg1ptr[1], bg1ptr[2]), bg2change);
+    recd(BGPT3, y, dw_pair(bg1ptr[2], bg1ptr[3]), bg3change);
+    recd(BGPT4, y, dw_pair(bg1ptr[3], bg1ptrb[0]), bg4change);
 
     recd(BGPT1X, y, bg1ptrx[0], bg1change);
     recd(BGPT2X, y, bg1ptrx[1], bg2change);
@@ -201,7 +223,7 @@ void newengine16b_lines(void)
     recd(BGPT3Y, y, bg1ptry[2], bg3change);
     recd(BGPT4Y, y, bg1ptry[3], bg4change);
 
-    ebx = dwr(forceblnk_dw);
+    ebx = dw_forceblnk();
     if ((u1)ebx == 0) {
         scfbl = 0;
     }
@@ -211,24 +233,24 @@ void newengine16b_lines(void)
         bgallchange[y] = 1;
     }
 
-    mode7ab[y] = dwr(mode7A_dw);
-    mode7cd[y] = dwr(mode7C_dw);
-    mode7xy[y] = dwr(mode7X0_dw);
-    wide(mode7st, y, dwr(mode7set_dw));
+    mode7ab[y] = dw_pair(mode7A, mode7B);
+    mode7cd[y] = dw_pair(mode7C, mode7D);
+    mode7xy[y] = dw_pair(mode7X0, mode7Y0);
+    wide(mode7st, y, dw_mode7set());
 
-    wide(t16x161, y, dwr(BG116x16t_dw));
+    wide(t16x161, y, dw_16x16t(0));
     if (t16x161[(s4)y - 1] != (u1)BG116x16t) {
         bg1change[y] = 1;
     }
-    wide(t16x162, y, dwr(BG216x16t_dw));
+    wide(t16x162, y, dw_16x16t(1));
     if (t16x162[(s4)y - 1] != (u1)BG216x16t) {
         bg2change[y] = 1;
     }
-    wide(t16x163, y, dwr(BG316x16t_dw));
+    wide(t16x163, y, dw_16x16t(2));
     if (t16x163[(s4)y - 1] != (u1)BG316x16t) {
         bg3change[y] = 1;
     }
-    wide(t16x164, y, dwr(BG416x16t_dw));
+    wide(t16x164, y, dw_16x16t(3));
     if (t16x164[(s4)y - 1] != (u1)BG416x16t) {
         bg4change[y] = 1;
     }
@@ -237,9 +259,9 @@ void newengine16b_lines(void)
         ngextbg = 1;
     }
 
-    wide(mosenng, y, dwr(mosaicon_dw));
-    wide(mosszng, y, dwr(mosaicsz_dw));
-    wide(intrlng, y, dwr(interlval_dw));
+    wide(mosenng, y, dw_mosaicon());
+    wide(mosszng, y, dw_mosaicsz());
+    wide(intrlng, y, dw_interlval());
 
     setpalette16bng();
 
@@ -308,7 +330,7 @@ static void winback(u4 const y, u4 const n)
     if (!(bl & 0x0Au)) {
         bl = 0;
     } else if ((bl & 0x0Au) != 0x0Au) {
-        u4 edx = dwr(winl1_dw);
+        u4 edx = dw_winl1();
         u1 ch = bl;
 
         if ((bl & 0x0Au) != 0x02u) {
@@ -339,12 +361,13 @@ void newengine16b_windows(void)
     }
     winback(y, 5);
 
-    ebx = dwr(winlogica_dw);
-    memcpy(&winlogicaval[y], &ebx, 4);
-    if (winlogicaval[(s4)y - 1] != (u2)ebx) {
+    ebx = dw_winlogica();
+    /* Other files read this table a byte at a time, so it holds x86's bytes. */
+    st32le(&winlogicaval[y], ebx);
+    if (ld16le(&winlogicaval[(s4)y - 1]) != (u2)ebx) {
         bgwinchange[y] = 1;
     }
-    ebx = dwr(winl1_dw);
+    ebx = dw_winl1();
     winboundary[y] = ebx;
     if (winboundary[(s4)y - 1] != ebx) {
         bgwinchange[y] = 1;
@@ -425,7 +448,7 @@ void newengine16b_sprwin(void);
 void newengine16b_sprwin(void)
 {
     u4 const y = curypos & 0xFFu;
-    u4 const ebx = dwr(winl1_dw);
+    u4 const ebx = dw_winl1();
     u2 dx;
 
     if (winbgenval_run[y + 4u * 256u] == 0) {
@@ -653,5 +676,5 @@ void newengine16b(void)
        pass can take the short route. */
     p = sprleftpr_b[y];
     if (p == 1u || p == 0x100u || p == 0x10000u || p == 0x1000000u)
-        sprleftpr_b[y] |= 0x80000000u;
+        sprleftpr_b[y] |= SPRLEFT_SINGLE;
 }

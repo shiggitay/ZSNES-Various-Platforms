@@ -1,3 +1,5 @@
+#include "unaligned.h"
+
 #ifdef __UNIXSDL__
 #include "gblhdr.h"
 #include "unix/sdllink.h"
@@ -939,6 +941,20 @@ int main(int const argc, char** const argv)
     int const argc = __argc;
     char** const argv = __argv;
 #endif
+
+    {
+        /* The emulator picks its byte-order handling at compile time
+           (unaligned.h). A compiler that guessed wrong would corrupt every
+           frame without a word, so refuse to run instead. */
+        uint16_t const one = 1;
+
+        if ((*(unsigned char const*)&one == 0) != ZSNES_BIG_ENDIAN) {
+            fprintf(stderr, "zsnes: built for the wrong byte order; rebuild "
+                            "with -DZSNES_BIG_ENDIAN=%d\n",
+                *(unsigned char const*)&one == 0);
+            return 1;
+        }
+    }
 
     if (init_paths(*argv)) {
 #ifdef __UNIXSDL__

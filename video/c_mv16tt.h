@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 
 extern u4 pal16b[256], pal16bcl[256], pal16bxcl[256];
 extern u2 fulladdtab[65537]; /* the dword load below reads the last entry */
@@ -59,7 +60,7 @@ static void tt_px(tt_regs* const r, u1 const* const tile, u1 const* const win,
     if (mode == T_HALF) {
         u4 ecx;
 
-        memcpy(&ecx, ebp + n * 2, 4);
+        ecx = ld16pair(ebp + n * 2);
         eax = pal16b[eax];
         /* A transparent pixel underneath means there is nothing to average
            with, so the colour goes down unchanged. */
@@ -77,11 +78,11 @@ static void tt_px(tt_regs* const r, u1 const* const tile, u1 const* const win,
         u4 const* const pal = mode == T_ADD ? pal16bcl : pal16bxcl;
         u4 ebx, ecx;
 
-        memcpy(&ebx, ebp + n * 2, 4);
+        ebx = ld16pair(ebp + n * 2);
         ecx = pal[eax];
         ebx &= TT_CLBIT;
         ecx = (ecx + ebx) >> 1;
-        memcpy(&ecx, fulladdtab + ecx, 4);
+        ecx = ld16pair(fulladdtab + ecx);
         if (mode == T_SUB) {
             ecx ^= 0xFFFFu;
         }

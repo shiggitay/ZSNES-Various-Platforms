@@ -9,6 +9,7 @@
  * The asm handlers took the register in ebx and the value in al and preserved
  * every register, so the C entry point needs no register threading.
  */
+#include "../unaligned.h"
 #ifndef DSP_REGS_H
 #define DSP_REGS_H
 
@@ -16,12 +17,12 @@
  * fractional part that Voice0IncNumber steps. */
 static inline u1 dsp_envhi(u4 voice)
 {
-    return ((u1*)&Voice0EnvInc[voice])[2];
+    return LE_BYTE(Voice0EnvInc[voice], 2);
 }
 
 static inline void dsp_set_envhi(u4 voice, u1 level)
 {
-    ((u1*)&Voice0EnvInc[voice])[2] = level;
+    LE_BYTE(Voice0EnvInc[voice], 2) = level;
 }
 
 /* Master/echo volume: the raw byte folded through VolumeTableb, then scaled by

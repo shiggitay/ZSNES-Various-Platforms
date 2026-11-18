@@ -44,8 +44,9 @@ uint16_t C4values[6]; /* addressed only as 16-bit halves */
 
 static uint8_t* C4Data;
 
-#define BYTE(v, n) (((uint8_t*)&(v))[n])
-#define RAMW(off) (*(uint16_t*)(C4Ram + (off)))
+#include "../unaligned.h"
+#define BYTE(v, n) LE_BYTE(v, n)
+#define RAMW(off) (ld16le((C4Ram + (off))))
 
 static uint8_t rol8(uint8_t v, int n) { return (uint8_t)(v << n | v >> (8 - n)); }
 static uint8_t ror8(uint8_t v, int n) { return (uint8_t)(v >> n | v << (8 - n)); }
@@ -81,8 +82,8 @@ static void c4_add_sprite(uint16_t xy, uint16_t oamattr)
     if (!C4count) {
         return;
     }
-    *(uint16_t*)c4_oam_ptr = xy;
-    *(uint16_t*)(c4_oam_ptr + 2) = oamattr;
+    st16le(c4_oam_ptr, xy);
+    st16le((c4_oam_ptr + 2), oamattr);
     *c4_hi_ptr = (uint8_t)((*c4_hi_ptr & c4_dl) | (c4_dh & (uint8_t)~c4_dl));
     c4_oam_ptr += 4;
     c4_dl = rol8(c4_dl, 2);
@@ -111,12 +112,12 @@ static void c4_conv_oam(void)
 
     uint8_t* obj = ram + 0x220;
     do {
-        C4SprX = (uint16_t)(*(uint16_t*)obj - addx);
-        C4SprY = (uint16_t)(*(uint16_t*)(obj + 2) - addy);
+        C4SprX = (uint16_t)(ld16le(obj) - addx);
+        C4SprY = (uint16_t)(ld16le((obj + 2)) - addy);
         C4SprOAM = obj[5];
         C4SprAttr = (uint8_t)(obj[4] | obj[6]);
 
-        uint8_t* def = lorom_ptr(obj[9], *(uint16_t*)(obj + 7));
+        uint8_t* def = lorom_ptr(obj[9], ld16le((obj + 7)));
         if (*def) {
             C4SprCnt = *def++;
             do {
@@ -220,7 +221,7 @@ static void c4_spr_bitplane(uint8_t* dst, uint32_t wtiles, uint8_t* src)
         do {
             uint8_t* s = rowsrc;
             for (int row = 0; row < 8; row++) {
-                uint32_t px = *(uint32_t*)s;
+                uint32_t px = ld32le(s);
                 uint8_t mask = 0x80;
                 for (int i = 0; i < 8; i++) {
                     if (px & 1) {
@@ -470,11 +471,11 @@ static void c4_bitplane_wave_block(uint8_t* dst, uint32_t* waveptr,
             if (height >= 0) {
                 bits = 0xFF00;
                 if (height < 8) {
-                    bits = *(uint16_t*)(C4Ram + 0xA00 + height * 2 + tblofs);
+                    bits = ld16le((C4Ram + 0xA00 + height * 2 + tblofs));
                 }
             }
-            uint16_t* w = (uint16_t*)(dst + c4_bmptr[i]);
-            *w = (uint16_t)((*w & *mask2) | (bits & *mask1));
+            uint8_t* const w = dst + c4_bmptr[i]; /* SNES RAM, little-endian */
+            st16le(w, (uint16_t)((ld16le(w) & *mask2) | (bits & *mask1)));
             height++;
         }
         *waveptr = (*waveptr + 1) & 0x7F;
@@ -613,21 +614,21 @@ static void c4_wireframe(void)
     uint32_t count = RAMW(0x1F80);
     uint8_t* v = ram;
     while (count--) {
-        C4WFXVal = (short)*(uint16_t*)(v + 1);
-        C4WFYVal = (short)*(uint16_t*)(v + 5);
-        C4WFZVal = (short)*(uint16_t*)(v + 9);
+        C4WFXVal = (short)ld16le((v + 1));
+        C4WFYVal = (short)ld16le((v + 5));
+        C4WFZVal = (short)ld16le((v + 9));
         C4TransfWireFrame();
-        *(uint16_t*)(v + 1) = (uint16_t)(C4WFXVal + 0x80);
-        *(uint16_t*)(v + 5) = (uint16_t)(C4WFYVal + 0x50);
+        st16le((v + 1), (uint16_t)(C4WFXVal + 0x80));
+        st16le((v + 5), (uint16_t)(C4WFYVal + 0x50));
         v += 16;
     }
 
-    *(uint16_t*)(ram + 0x600) = 23;
-    *(uint16_t*)(ram + 0x602) = 0x60;
-    *(uint16_t*)(ram + 0x605) = 0x40;
-    *(uint16_t*)(ram + 0x608) = 23;
-    *(uint16_t*)(ram + 0x60A) = 0x60;
-    *(uint16_t*)(ram + 0x60D) = 0x40;
+    st16le((ram + 0x600), 23);
+    st16le((ram + 0x602), 0x60);
+    st16le((ram + 0x605), 0x40);
+    st16le((ram + 0x608), 23);
+    st16le((ram + 0x60A), 0x60);
+    st16le((ram + 0x60D), 0x40);
 
     count = RAMW(0xB00);
     uint8_t* idx = ram + 0xB02;
@@ -635,14 +636,14 @@ static void c4_wireframe(void)
     while (count--) {
         uint8_t* p1 = ram + (idx[0] << 4);
         uint8_t* p2 = ram + (idx[1] << 4);
-        C4WFXVal = (short)*(uint16_t*)(p1 + 1);
-        C4WFYVal = (short)*(uint16_t*)(p1 + 5);
-        C4WFX2Val = (short)*(uint16_t*)(p2 + 1);
-        C4WFY2Val = (short)*(uint16_t*)(p2 + 5);
+        C4WFXVal = (short)ld16le((p1 + 1));
+        C4WFYVal = (short)ld16le((p1 + 5));
+        C4WFX2Val = (short)ld16le((p2 + 1));
+        C4WFY2Val = (short)ld16le((p2 + 5));
         C4CalcWireFrame();
-        *(uint16_t*)(out + 0x600) = (uint16_t)(C4WFDist ? C4WFDist : 1);
-        *(uint16_t*)(out + 0x602) = (uint16_t)C4WFXVal;
-        *(uint16_t*)(out + 0x605) = (uint16_t)C4WFYVal;
+        st16le((out + 0x600), (uint16_t)(C4WFDist ? C4WFDist : 1));
+        st16le((out + 0x602), (uint16_t)C4WFXVal);
+        st16le((out + 0x605), (uint16_t)C4WFYVal);
         idx += 2;
         out += 8;
     }
@@ -652,16 +653,16 @@ static void c4_transform(void)
 {
     uint8_t* ram = C4Ram;
 
-    C4WFXVal = (short)*(uint16_t*)(ram + 0x1F81);
-    C4WFYVal = (short)*(uint16_t*)(ram + 0x1F84);
-    C4WFZVal = (short)*(uint16_t*)(ram + 0x1F87);
+    C4WFXVal = (short)ld16le((ram + 0x1F81));
+    C4WFYVal = (short)ld16le((ram + 0x1F84));
+    C4WFZVal = (short)ld16le((ram + 0x1F87));
     BYTE(C4WFScale, 0) = ram[0x1F90];
     BYTE(C4WFX2Val, 0) = ram[0x1F89];
     BYTE(C4WFY2Val, 0) = ram[0x1F8A];
     BYTE(C4WFDist, 0) = ram[0x1F8B];
     C4TransfWireFrame2();
-    *(uint16_t*)(ram + 0x1F80) = (uint16_t)C4WFXVal;
-    *(uint16_t*)(ram + 0x1F83) = (uint16_t)C4WFYVal;
+    st16le((ram + 0x1F80), (uint16_t)C4WFXVal);
+    st16le((ram + 0x1F83), (uint16_t)C4WFYVal);
 }
 
 /* ---- command dispatch ---- */
@@ -718,7 +719,7 @@ static void c4_activate(uint8_t cmd)
             int32_t prod = (int32_t)(int16_t)(uint16_t)q * (int16_t)RAMW(0x1F81);
             result = (uint16_t)(prod >> 8);
         }
-        RAMW(0x1F80) = result;
+        st16le(C4Ram + (0x1F80), result);
         C4values[2] = result;
         break;
     }
@@ -727,18 +728,18 @@ static void c4_activate(uint8_t cmd)
         C41FYVal = (short)RAMW(0x1F83);
         C41FDistVal = (short)RAMW(0x1F86);
         C4Op0D();
-        RAMW(0x1F89) = (uint16_t)C41FXVal;
-        RAMW(0x1F8C) = (uint16_t)C41FYVal;
+        st16le(C4Ram + (0x1F89), (uint16_t)C41FXVal);
+        st16le(C4Ram + (0x1F8C), (uint16_t)C41FYVal);
         break;
     case 0x10: /* polar to rectangular */
     {
         uint32_t angle = RAMW(0x1F80) & 0x1FF;
         int32_t d = (int16_t)RAMW(0x1F83);
         int32_t v = (int16_t)(uint16_t)(((uint32_t)(CosTable[angle] * d)) >> 15);
-        *(uint32_t*)(ram + 0x1F86) = (uint32_t)v;
+        st32le((ram + 0x1F86), (uint32_t)v);
         v = (int16_t)(uint16_t)(((uint32_t)(SinTable[angle] * d)) >> 15);
         v -= v >> 6;
-        *(uint32_t*)(ram + 0x1F89) = (uint32_t)v;
+        st32le((ram + 0x1F89), (uint32_t)v);
         break;
     }
     case 0x13: /* polar to rectangular, rounded */
@@ -747,10 +748,10 @@ static void c4_activate(uint8_t cmd)
         int32_t d = (int32_t)(int16_t)RAMW(0x1F83) * 2;
         int32_t v = CosTable[angle] * d;
         v = (v >> 8) + ((v >> 7) & 1);
-        *(uint32_t*)(ram + 0x1F86) = (uint32_t)v;
+        st32le((ram + 0x1F86), (uint32_t)v);
         v = SinTable[angle] * d;
         v = (v >> 8) + ((v >> 7) & 1);
-        RAMW(0x1F89) = (uint16_t)v;
+        st16le(C4Ram + (0x1F89), (uint16_t)v);
         ram[0x1F8B] = (uint8_t)(v >> 16);
         break;
     }
@@ -758,22 +759,22 @@ static void c4_activate(uint8_t cmd)
         C41FXVal = (short)RAMW(0x1F80);
         C41FYVal = (short)RAMW(0x1F83);
         C4Op15();
-        RAMW(0x1F80) = (uint16_t)C41FDist;
+        st16le(C4Ram + (0x1F80), (uint16_t)C41FDist);
         break;
     case 0x1F: /* calculate angle */
         C41FXVal = (short)RAMW(0x1F80);
         C41FYVal = (short)RAMW(0x1F83);
         C4Op1F();
-        RAMW(0x1F86) = (uint16_t)C41FAngleRes;
+        st16le(C4Ram + (0x1F86), (uint16_t)C41FAngleRes);
         break;
     case 0x22: /* two-dimensional line drawing */
         C4Op22();
         break;
     case 0x25: /* 24-bit multiply */
     {
-        uint32_t a = *(uint32_t*)(ram + 0x1F80) & 0xFFFFFF;
-        uint32_t b = *(uint32_t*)(ram + 0x1F83) & 0xFFFFFF;
-        *(uint32_t*)(ram + 0x1F80) = a * b;
+        uint32_t a = ld32le((ram + 0x1F80)) & 0xFFFFFF;
+        uint32_t b = ld32le((ram + 0x1F83)) & 0xFFFFFF;
+        st32le((ram + 0x1F80), a * b);
         break;
     }
     case 0x2D: /* coordinate transform */
@@ -785,30 +786,30 @@ static void c4_activate(uint8_t cmd)
         for (uint32_t i = 0; i < 0x800; i++) {
             sum = (uint16_t)(sum + ram[i]);
         }
-        RAMW(0x1F80) = sum;
+        st16le(C4Ram + (0x1F80), sum);
         break;
     }
     case 0x54: /* 24-bit square */
     {
-        int32_t v = (int32_t)(*(uint32_t*)(ram + 0x1F80) << 8) >> 8;
+        int32_t v = (int32_t)(ld32le((ram + 0x1F80)) << 8) >> 8;
         int64_t sq = (int64_t)v * v;
-        *(uint32_t*)(ram + 0x1F83) = (uint32_t)sq;
-        RAMW(0x1F87) = (uint16_t)((uint64_t)sq >> 32);
+        st32le((ram + 0x1F83), (uint32_t)sq);
+        st16le(C4Ram + (0x1F87), (uint16_t)((uint64_t)sq >> 32));
         break;
     }
     case 0x5C: /* immediate register values */
-        *(uint32_t*)(ram + 0) = 0xFF000000;
-        *(uint32_t*)(ram + 4) = 0xFF00FFFF;
-        *(uint32_t*)(ram + 8) = 0xFF000000;
-        *(uint32_t*)(ram + 12) = 0x0000FFFF;
-        *(uint32_t*)(ram + 16) = 0x0000FFFF;
-        *(uint32_t*)(ram + 20) = 0x7FFFFF80;
-        *(uint32_t*)(ram + 24) = 0xFF008000;
-        *(uint32_t*)(ram + 28) = 0x7FFF007F;
-        *(uint32_t*)(ram + 32) = 0xFFFF7FFF;
-        *(uint32_t*)(ram + 36) = 0xFF010000;
-        *(uint32_t*)(ram + 40) = 0x0100FEFF;
-        *(uint32_t*)(ram + 44) = 0x00FEFF00;
+        st32le((ram + 0), 0xFF000000);
+        st32le((ram + 4), 0xFF00FFFF);
+        st32le((ram + 8), 0xFF000000);
+        st32le((ram + 12), 0x0000FFFF);
+        st32le((ram + 16), 0x0000FFFF);
+        st32le((ram + 20), 0x7FFFFF80);
+        st32le((ram + 24), 0xFF008000);
+        st32le((ram + 28), 0x7FFF007F);
+        st32le((ram + 32), 0xFFFF7FFF);
+        st32le((ram + 36), 0xFF010000);
+        st32le((ram + 40), 0x0100FEFF);
+        st32le((ram + 44), 0x00FEFF00);
         break;
     case 0x89: /* immediate ROM values */
         ram[0x1F80] = 0x36;

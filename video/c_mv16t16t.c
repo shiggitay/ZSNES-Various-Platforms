@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "../types.h"
+#include "../unaligned.h"
 #include "c_mv16tt.h"
 #include "makevid.h"
 
@@ -47,7 +48,7 @@ static void tiles(tt_regs* const r, u4 const hofs, u1* esi, int const mode,
     do {
         u1 attr;
 
-        eax = (eax & 0xFFFF0000u) | *edi;
+        eax = (eax & 0xFFFF0000u) | ld16le(edi);
         /* The attribute is taken before the increment below, so it is the one
            the word was read with even when adding 1 carries into it - and the
            x flip is tested before the priority xor. */
