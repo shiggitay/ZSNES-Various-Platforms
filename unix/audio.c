@@ -143,8 +143,8 @@ static void MixSoundBlock(int16_t* const out, uint32_t const samples)
 {
     extern uint32_t BufferSizeB, BufferSizeW;
     extern uint8_t DSPDisable;
-    extern int DSPBuffer[1280];
-    int *d = DSPBuffer, *end_d;
+    extern int32_t DSPBuffer[1280];
+    int32_t *d = DSPBuffer, *end_d;
     int16_t* p = out;
 
     BufferSizeB = samples;
@@ -180,7 +180,7 @@ static void MixSoundBlock(int16_t* const out, uint32_t const samples)
 static void SoundWriteSamples_ao(uint32_t samples)
 {
     extern uint32_t BufferSizeB, BufferSizeW;
-    extern int DSPBuffer[1280];
+    extern int32_t DSPBuffer[1280];
     int16_t stemp[1280];
 
     int *d = DSPBuffer, *end_d = NULL;

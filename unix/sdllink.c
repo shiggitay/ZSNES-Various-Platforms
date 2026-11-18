@@ -219,7 +219,7 @@ void PlaceWindowOnMonitor(SDL_Window* const win)
 }
 SDL_Surface* surface;
 int SurfaceLocking = 0;
-int SurfaceX, SurfaceY;
+s4 SurfaceX, SurfaceY;
 static uint32_t WindowWidth = 256;
 static uint32_t WindowHeight = 224;
 static uint32_t FullScreen = 0;

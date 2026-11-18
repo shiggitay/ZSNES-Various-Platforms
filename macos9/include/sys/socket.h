@@ -1,0 +1,3 @@
+#ifndef MACOS9_SYS_SOCKET_H
+#define MACOS9_SYS_SOCKET_H
+#endif

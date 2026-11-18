@@ -34,7 +34,7 @@
 
 /* Not `unix`: that spelling is only predefined in GNU mode, so under -std=c11
    this branch never fired and unistd.h was never pulled in here. */
-#if defined(__unix__) || defined(__APPLE__)
+#if defined(__unix__) || defined(__APPLE__) || defined(ZSNES_MACOS9)
 #include <sys/types.h>
 #include <unistd.h>
 #endif

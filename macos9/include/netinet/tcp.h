@@ -1,0 +1,3 @@
+#ifndef MACOS9_NETINET_TCP_H
+#define MACOS9_NETINET_TCP_H
+#endif

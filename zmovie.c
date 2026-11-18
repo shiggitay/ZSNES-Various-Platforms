@@ -2155,9 +2155,9 @@ static bool raw_video_open(void)
 
 static void raw_audio_write(uint32_t samples)
 {
-    extern int DSPBuffer[1280];
+    extern int32_t DSPBuffer[1280];
     extern uint32_t BufferSizeB, BufferSizeW;
-    int *d = DSPBuffer, *d_end;
+    int32_t *d = DSPBuffer, *d_end;
 
     while (samples > 1280) // This is in a loop for future proofing if we ever add above 48KHz
     {

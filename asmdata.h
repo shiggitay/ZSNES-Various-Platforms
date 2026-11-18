@@ -39,6 +39,22 @@
 #endif
 #define ASM_LSYM(sym) #sym ":\n"
 #define ASM_LSYMREF(sym) #sym
+#elif defined(ZSNES_MACOS9)
+// Classic Mac OS on PowerPC (Retro68): XCOFF, which has control sections
+// rather than named sections and no push/pop. Each block is a csect of its
+// own name, 32-byte aligned (the 5 is log2), and the asm hands back to the
+// text csect the compiler was in. Zeroed blocks are [RW] too: the linker
+// takes each label in a [BS] csect for a common block of its own and lays
+// them out apart. PEF packs the zeros, so the file does not grow. (The build
+// also turns .long and .short into .4byte and .2byte, which XCOFF's
+// assembler does not pad; see tools/build-macos9.sh.)
+#define ASM_SEC_DATA(name) ".csect " name "[RW],5\n"
+#define ASM_SEC_BSS(name) ".csect " name "_bss[RW],5\n"
+#define ASM_SEC_END ".csect .text[PR]\n"
+#define ASM_GSYM(sym) ".globl " #sym "\n" #sym ":\n"
+#define ASM_SYMREF(sym) #sym
+#define ASM_LSYM(sym) #sym ":\n"
+#define ASM_LSYMREF(sym) #sym
 #else
 #define ASM_SEC_DATA(name) ".pushsection " name ",\"aw\",@progbits\n"
 #define ASM_SEC_BSS(name) ".pushsection " name ",\"aw\",@nobits\n"

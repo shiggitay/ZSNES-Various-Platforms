@@ -222,6 +222,30 @@ saved on PowerPC loads on PowerPC and one saved on x86 loads on x86. Battery
 saves (`.srm`), movies, cheats, configuration files and netplay are the same on
 both.
 
+### Classic Mac OS (Mac OS 8.6 to 9.2.2, PowerPC)
+
+`tools/build-macos9.sh` builds ZSNES as a classic Mac OS application with the
+[Retro68](https://github.com/autc04/Retro68) cross toolchain:
+
+```sh
+git clone https://github.com/autc04/Retro68
+cd Retro68 && git submodule update --init && cd ..
+mkdir retro68-build && cd retro68-build
+../Retro68/build-toolchain.bash --no-68k --no-carbon
+cd ../zsnes
+RETRO68=../retro68-build/toolchain tools/build-macos9.sh
+```
+
+It leaves `build-macos9/ZSNES.bin` (MacBinary, for StuffIt Expander) and
+`build-macos9/ZSNES.dsk` (an HFS disk image with the application and a read
+me). The frontend is the Unix one: `macos9/toolbox.c` is the part of SDL3 it
+uses, written on the Toolbox (a window and a 16-bit GWorld, GetKeys, the Sound
+Manager), and `macos9/posix.c` gives it Unix paths over the File Manager, `/`
+being the list of mounted disks. It links against InterfaceLib and
+AppearanceLib only. There are no joysticks or netplay yet, and no Carbon build:
+Carbon needs Apple's Universal Interfaces, which Retro68 cannot redistribute.
+Pass `MACOS9_CFLAGS=-mcpu=7400` (or `750`) to tune for a G4 (or G3).
+
 ### Pull requests
 
 * Pull requests are welcome.
