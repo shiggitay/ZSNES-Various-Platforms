@@ -25,6 +25,8 @@ They need Apple's OpenGL extensions and an accelerated card (Rage 128,
 Radeon, GeForce); without them those modes fall back to 512x448 window.
 - Fastest full screen: 640x480 ODS F (OpenGL), or 256x224 R F without
   OpenGL, which ZSNES doubles when the screen has room.
+- Full screen hides the menu bar and the Control Strip, and brings both
+  back when you leave it or switch to another application.
 - Full screen covers the desktop at its own resolution. In the OpenGL modes
   the graphics card scales the picture to fill it, which costs it little.
 - VARIABLE (OpenGL) windows can be resized with the grow box and zoomed.

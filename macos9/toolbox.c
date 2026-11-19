@@ -444,6 +444,31 @@ static void menubar_strip(RgnHandle const rgn)
     RectRgn(rgn, &r);
 }
 
+/* The Control Strip goes with the menu bar, and comes back only if it was
+   showing. ControlStripLib is imported weakly: a Mac with the strip turned
+   off still runs ZSNES. */
+pascal Boolean SBIsControlStripVisible(void);
+pascal void SBShowHideControlStrip(Boolean showIt);
+
+static int strip_was_visible;
+
+static void hide_control_strip(int const hide)
+{
+    void (*volatile is)(void) = (void (*)(void))SBIsControlStripVisible;
+    void (*volatile set)(void) = (void (*)(void))SBShowHideControlStrip;
+
+    if (!is || !set)
+        return;
+    if (hide) {
+        strip_was_visible = SBIsControlStripVisible() != 0;
+        if (strip_was_visible)
+            SBShowHideControlStrip(false);
+    } else if (strip_was_visible) {
+        SBShowHideControlStrip(true);
+        strip_was_visible = 0;
+    }
+}
+
 static void hide_menubar(int const hide)
 {
     RgnHandle const gray = LMGetGrayRgn();
@@ -459,10 +484,12 @@ static void hide_menubar(int const hide)
     if (hide) {
         UnionRgn(gray, strip, gray);
         LMSetMBarHeight(0);
+        hide_control_strip(1);
     } else {
         DiffRgn(gray, strip, gray);
         LMSetMBarHeight(mbar_height);
         DrawMenuBar();
+        hide_control_strip(0);
     }
     DisposeRgn(strip);
 }

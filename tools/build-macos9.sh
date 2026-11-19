@@ -86,10 +86,18 @@ for s in $SRCS; do OBJS="$OBJS $OUT/obj/${s%.c}.o"; done
 PATH=$RETRO68/bin:$PATH sh "$ROOT/macos9/implib/mkimplib.sh" OpenGLLibrary \
     "$ROOT/macos9/implib/OpenGLLibrary.txt" "$OUT/libOpenGLWeak.a"
 
+# The Control Strip is optional too; Retro68's import library for it, under
+# a member name MakePEF reads as weak.
+CS_TMP=$(mktemp -d)
+(cd "$CS_TMP" && powerpc-apple-macos-ar x "$RETRO68/powerpc-apple-macos/lib/libControlStripLib.a" ControlStripLib.o &&
+    mv ControlStripLib.o ControlStripLib__weak.o && rm -f "$OUT/libControlStripWeak.a" &&
+    powerpc-apple-macos-ar cq "$OUT/libControlStripWeak.a" ControlStripLib__weak.o)
+rm -rf "$CS_TMP"
+
 echo "LINK ZSNES.xcoff"
 # shellcheck disable=SC2086
 $CC -o "$OUT/ZSNES.xcoff" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" \
-    -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak
+    -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak -lControlStripWeak
 
 echo "PEF ZSNES.pef"
 MakePEF "$OUT/ZSNES.xcoff" -o "$OUT/ZSNES.pef"
