@@ -144,8 +144,9 @@ void macos9_init(void)
     video_menu = NewMenu(MENU_VIDEO, s);
     pstr(s, "Show FPS/F");
     AppendMenu(video_menu, s);
-    /* Command-Return, which a menu cannot show; poll_keys() catches it. */
-    pstr(s, "Toggle Full Screen (Cmd-Return)");
+    /* Shift-Command-F and Command-Return, which a classic menu cannot show
+       as its shortcut: handle() and poll_keys() catch them. */
+    pstr(s, "Full Screen (Shift-Cmd-F or Cmd-Return)");
     AppendMenu(video_menu, s);
     InsertMenu(video_menu, 0);
     DrawMenuBar();
@@ -1193,7 +1194,12 @@ static void handle(EventRecord* const ev)
     case autoKey: {
         char const c = (char)(ev->message & charCodeMask);
 
-        if (ev->modifiers & cmdKey) {
+        if ((ev->modifiers & cmdKey) && (ev->modifiers & shiftKey) && (c == 'f' || c == 'F')) {
+            /* Before MenuKey, which ignores Shift and would take it for
+               Command-F, the frame counter. */
+            if (ev->what == keyDown)
+                fullscreen_requested = 1;
+        } else if (ev->modifiers & cmdKey) {
             if (ev->what == keyDown) {
                 long choice;
 
