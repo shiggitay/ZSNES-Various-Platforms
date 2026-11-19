@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "../zclock.h"
 #include <string.h>
 
 #include "../c_intrf.h"
@@ -954,7 +955,7 @@ static void show_cpu_usage(void)
     double const prevd = timespec_to_sec(&prev);
 
     struct timespec now = {};
-    clock_gettime(CLOCK_MONOTONIC, &now);
+    zclock_monotonic(&now);
 
     if (prevd == 0.0) {
         prev = now;

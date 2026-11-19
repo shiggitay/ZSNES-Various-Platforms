@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "../zclock.h"
 #include "../gblhdr.h"
 #include "../gblvars.h"
 #include <fcntl.h>
@@ -713,7 +714,7 @@ static void pw_calibrate(void)
     uint32_t const lo = (pw_rate_hz * 40U) / 1000U;
     uint32_t const hi = (pw_rate_hz * PW_TARGET_MAX_MS) / 1000U;
 
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    zclock_monotonic(&ts);
     now = (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
     if (pw_calib_start == 0.0) {
         pw_calib_start = now;

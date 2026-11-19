@@ -2,6 +2,7 @@
    path that knows what a sockaddr is. */
 
 #include "../net/transport.h"
+#include "../zclock.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -299,7 +300,7 @@ uint64_t net_now_ms(void)
 {
     struct timespec now;
 
-    clock_gettime(CLOCK_MONOTONIC, &now);
+    zclock_monotonic(&now);
     return (uint64_t)now.tv_sec * 1000u + (uint64_t)now.tv_nsec / 1000000u;
 }
 

@@ -1,4 +1,5 @@
 #include "../gblhdr.h"
+#include "../zclock.h"
 #include "gl_draw.h"
 #include "lib.h"
 #include "sw_draw.h"
@@ -1772,7 +1773,7 @@ int startgame(void)
     if (!ranonce) {
         ranonce = true;
 
-        clock_gettime(CLOCK_MONOTONIC, &sem_start);
+        zclock_monotonic(&sem_start);
 
         // Start semaphore code so ZSNES multitasks nicely :)
         sem_sleep_rdy();
@@ -2793,7 +2794,7 @@ static double sem_GetTicks(void)
 {
     struct timespec now;
 
-    clock_gettime(CLOCK_MONOTONIC, &now);
+    zclock_monotonic(&now);
     return ((double)(now.tv_sec - sem_start.tv_sec)) * 1000.
         + ((double)(now.tv_nsec - sem_start.tv_nsec)) * 1e-6;
 }
