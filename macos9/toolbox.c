@@ -574,6 +574,20 @@ static bool make_window(struct SDL_Window* const w)
     place_picture(w);
     if (w->opengl && gl_port_ctx)
         macos9_gl_attach(w->win);
+    /* SDL3 reports a full-screen window's real size this way once it is up,
+       and the frontend sizes its OpenGL viewport from that. Without it the
+       viewport kept the mode's 640x480 whenever the video restarted with the
+       mode unchanged (the GUI does that), and the picture filled only the
+       bottom left of a larger screen. */
+    if (w->opengl && w->fullscreen) {
+        SDL_Event e;
+
+        memset(&e, 0, sizeof e);
+        e.type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+        e.window.data1 = port_w(w->win);
+        e.window.data2 = port_h(w->win);
+        push(&e);
+    }
     return true;
 }
 
@@ -1255,6 +1269,14 @@ void zs3_PumpEvents(void)
         if (!the_window.opengl) {
             p.h = (short)((p.h - the_window.pic.left) / the_window.scale);
             p.v = (short)((p.v - the_window.pic.top) / the_window.scale);
+        } else if (the_window.fullscreen) {
+            /* Stretched over the screen: back to the mode's own size, which
+               is what the frontend scales the mouse from. */
+            short const pw = port_w(the_window.win), ph = port_h(the_window.win);
+            if (pw > 0 && ph > 0) {
+                p.h = (short)((long)p.h * the_window.w / pw);
+                p.v = (short)((long)p.v * the_window.h / ph);
+            }
         }
         if (!have_last || p.h != last.h || p.v != last.v) {
             SDL_Event e;
