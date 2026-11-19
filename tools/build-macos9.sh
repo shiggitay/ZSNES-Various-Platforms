@@ -28,7 +28,7 @@ cd "$ROOT"
 # build, with the parts that need Unix itself swapped for macos9/ ones.
 SRCS=$(make -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' zsnes-print-srcs \
     ARCH=LINUX CPU=ppc WITH_SDL12=yes WITH_SDL=yes WITH_PNG= WITH_OPENGL= BUILD_DIR="$OUT/unused" 2>/dev/null |
-    tr ' ' '\n' | grep -v -e '^unix/sdl12compat.c$' -e '^unix/net_transport.c$' -e '^unix/safelib.c$' -e '^mmlib/linux.c$' | tr '\n' ' ')
+    tr ' ' '\n' | grep -v -e '^unix/sdl12compat.c$' -e '^unix/sdl12gl.c$' -e '^unix/glupload.c$' -e '^unix/net_transport.c$' -e '^unix/safelib.c$' -e '^mmlib/linux.c$' | tr '\n' ' ')
 SRCS="$SRCS unix/gl_draw.c unix/glupload.c macos9/toolbox.c macos9/gl.c macos9/posix.c macos9/net_stub.c macos9/safelib.c"
 
 DEFS="-DZSNES_MACOS9 -D__UNIXSDL__ -DZSNES_SDL12 -D__OPENGL__ -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
