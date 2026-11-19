@@ -352,8 +352,19 @@ bool zs3_SetWindowFullscreen(SDL_Window* const win, bool const fs)
 
 bool zs3_SetWindowPosition(SDL_Window* const win, int const x, int const y) { return true; }
 
+/* No pointer grab. SDL 1.2's X11 grab retries every 100 ms until the X
+   server grants it, with no limit; on Yellow Dog Linux 3 the server kept
+   answering AlreadyGrabbed, so entering full screen - ZSNES's default mode -
+   hung the emulator for good after its first frame (strace: GrabPointer,
+   reply status 1, select 100 ms, over and over). The pointer is then free to
+   leave a full-screen window; only the SNES mouse notices.
+   ZSNES_SDL12_GRAB=1 asks for the grab anyway. */
 bool zs3_SetWindowMouseGrab(SDL_Window* const win, bool const grab)
 {
+    char const* const e = getenv("ZSNES_SDL12_GRAB");
+
+    if (grab && (!e || *e != '1'))
+        return true;
     SDL_WM_GrabInput(grab ? SDL_GRAB_ON : SDL_GRAB_OFF);
     return true;
 }
