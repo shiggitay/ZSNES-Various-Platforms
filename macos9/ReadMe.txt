@@ -24,10 +24,9 @@ scales the picture, which takes most of the drawing work off the processor.
 They need Apple's OpenGL extensions and an accelerated card (Rage 128,
 Radeon, GeForce); without them those modes fall back to 512x448 window.
 - Fastest full screen: 640x480 ODS F (OpenGL), or 256x224 R F without
-  OpenGL, which ZSNES doubles to fill a 640x480 screen.
-- Full screen switches the monitor to the nearest resolution (640x480 for
-  the small modes) with DrawSprocket, and back when you leave. Without the
-  DrawSprocket extension it keeps your desktop's resolution, which is slower.
+  OpenGL, which ZSNES doubles when the screen has room.
+- Full screen covers the desktop at its own resolution. In the OpenGL modes
+  the graphics card scales the picture to fill it, which costs it little.
 - VARIABLE (OpenGL) windows can be resized with the grow box and zoomed.
 - Video > Show FPS (Command-F) toggles the frame counter.
 - Thousands of colors (16-bit) is faster than Millions.

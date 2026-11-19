@@ -80,22 +80,16 @@ make -s -k -j"$JOBS" -f "$OUT/objs.mk" all
 
 OBJS=
 for s in $SRCS; do OBJS="$OBJS $OUT/obj/${s%.c}.o"; done
-# OpenGL and DrawSprocket are optional extensions on Mac OS 8 and 9, so both
-# are imported weakly: the application launches without them and checks for
-# them before use. OpenGL's import library is made here (Retro68 has none);
-# DrawSprocket's is Retro68's, under a member name MakePEF reads as weak.
+# OpenGL is an optional extension on Mac OS 8 and 9, so it is imported
+# weakly: the application launches without it and checks for it before use.
+# Its import library is made here; Retro68 has none.
 PATH=$RETRO68/bin:$PATH sh "$ROOT/macos9/implib/mkimplib.sh" OpenGLLibrary \
     "$ROOT/macos9/implib/OpenGLLibrary.txt" "$OUT/libOpenGLWeak.a"
-DSP_TMP=$(mktemp -d)
-(cd "$DSP_TMP" && powerpc-apple-macos-ar x "$RETRO68/powerpc-apple-macos/lib/libDrawSprocketLib.a" DrawSprocketLib.o &&
-    mv DrawSprocketLib.o DrawSprocketLib__weak.o && rm -f "$OUT/libDrawSprocketWeak.a" &&
-    powerpc-apple-macos-ar cq "$OUT/libDrawSprocketWeak.a" DrawSprocketLib__weak.o)
-rm -rf "$DSP_TMP"
 
 echo "LINK ZSNES.xcoff"
 # shellcheck disable=SC2086
 $CC -o "$OUT/ZSNES.xcoff" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" \
-    -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak -lDrawSprocketWeak
+    -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak
 
 echo "PEF ZSNES.pef"
 MakePEF "$OUT/ZSNES.xcoff" -o "$OUT/ZSNES.pef"

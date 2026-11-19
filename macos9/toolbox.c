@@ -418,129 +418,6 @@ bool zs3_SaveBMP(SDL_Surface* const s, char const* const file)
 
 static int focused = 1;
 
-/* --- DrawSprocket: a lower screen resolution for full screen -------------- */
-
-/* Full screen at the desktop's 1024x768 or more made every frame a
-   screen-sized copy. DrawSprocket switches the display to the closest mode
-   that holds the picture - 640x480 for the SNES's own modes - and back. It is
-   imported weakly: without the DrawSprocket extension full screen covers the
-   desktop at its own resolution instead. Layout from DrawSprocket.h. */
-typedef struct OpaqueDSpContextReference* DSpContextReference;
-
-typedef struct DSpContextAttributes {
-    Fixed frequency;
-    UInt32 displayWidth;
-    UInt32 displayHeight;
-    UInt32 reserved1;
-    UInt32 reserved2;
-    UInt32 colorNeeds;
-    CTabHandle colorTable;
-    UInt32 contextOptions;
-    UInt32 backBufferDepthMask;
-    UInt32 displayDepthMask;
-    UInt32 backBufferBestDepth;
-    UInt32 displayBestDepth;
-    UInt32 pageCount;
-    char filler[3];
-    Boolean gameMustConfirmSwitch;
-    UInt32 reserved3[4];
-} DSpContextAttributes;
-
-enum {
-    kDSpContextState_Active = 0,
-    kDSpContextState_Paused = 1,
-    kDSpContextState_Inactive = 2,
-    kDSpColorNeeds_Require = 2,
-    kDSpDepthMask_16 = 1 << 4,
-    kDSpDepthMask_32 = 1 << 5
-};
-
-OSStatus DSpStartup(void);
-OSStatus DSpShutdown(void);
-OSStatus DSpFindBestContext(DSpContextAttributes* desired, DSpContextReference* out);
-OSStatus DSpContext_Reserve(DSpContextReference ctx, DSpContextAttributes* desired);
-OSStatus DSpContext_Release(DSpContextReference ctx);
-OSStatus DSpContext_SetState(DSpContextReference ctx, UInt32 state);
-OSStatus DSpContext_GetAttributes(DSpContextReference ctx, DSpContextAttributes* attr);
-OSStatus DSpProcessEvent(EventRecord* ev, Boolean* processed);
-
-static int dsp_state = -1; /* -1 not tried, 0 unavailable, 1 started */
-static DSpContextReference dsp_ctx;
-static int dsp_w, dsp_h, dsp_paused;
-
-static int dsp_available(void)
-{
-    if (dsp_state < 0) {
-        void (*volatile p)(void) = (void (*)(void))DSpStartup;
-        void (*volatile q)(void) = (void (*)(void))DSpFindBestContext;
-
-        dsp_state = p && q && DSpStartup() == noErr;
-        if (!dsp_state)
-            printf("DrawSprocket: not installed; full screen keeps the desktop resolution\n");
-    }
-    return dsp_state;
-}
-
-static void screen_release(void)
-{
-    if (dsp_ctx) {
-        DSpContext_SetState(dsp_ctx, kDSpContextState_Inactive);
-        DSpContext_Release(dsp_ctx);
-        dsp_ctx = NULL;
-        dsp_w = dsp_h = 0;
-        dsp_paused = 0;
-    }
-}
-
-/* The display at the smallest mode of at least w x h, 16-bit for preference:
-   nothing ZSNES draws needs more, and it halves what each frame moves. */
-static void screen_reserve(int const w, int const h)
-{
-    DSpContextAttributes a;
-    DSpContextReference c;
-    int const want_w = w < 640 ? 640 : w, want_h = h < 480 ? 480 : h;
-
-    if (dsp_ctx && dsp_w == want_w && dsp_h == want_h)
-        return;
-    screen_release();
-    if (!dsp_available())
-        return;
-    memset(&a, 0, sizeof a);
-    a.displayWidth = (UInt32)want_w;
-    a.displayHeight = (UInt32)want_h;
-    a.colorNeeds = kDSpColorNeeds_Require;
-    a.backBufferDepthMask = kDSpDepthMask_16 | kDSpDepthMask_32;
-    a.displayDepthMask = kDSpDepthMask_16 | kDSpDepthMask_32;
-    a.backBufferBestDepth = 16;
-    a.displayBestDepth = 16;
-    a.pageCount = 1;
-    if (DSpFindBestContext(&a, &c) != noErr) {
-        printf("DrawSprocket: no display mode for %dx%d\n", want_w, want_h);
-        return;
-    }
-    if (DSpContext_Reserve(c, &a) != noErr)
-        return;
-    if (DSpContext_SetState(c, kDSpContextState_Active) != noErr) {
-        DSpContext_Release(c);
-        return;
-    }
-    dsp_ctx = c;
-    dsp_w = want_w;
-    dsp_h = want_h;
-    {
-        Rect const r = (**GetMainDevice()).gdRect;
-        printf("Full screen: display at %dx%d\n", r.right - r.left, r.bottom - r.top);
-    }
-}
-
-static void screen_pause(int const pause)
-{
-    if (dsp_ctx && pause != dsp_paused) {
-        DSpContext_SetState(dsp_ctx, pause ? kDSpContextState_Paused : kDSpContextState_Active);
-        dsp_paused = pause;
-    }
-}
-
 /* --- the window ----------------------------------------------------------- */
 
 
@@ -550,8 +427,8 @@ static int menubar_hidden;
 /* The classic way to take the whole screen: a menu bar zero pixels high,
    and its strip added to the desktop region so a window may draw there.
    Showing it again takes the strip back out of whatever the desktop region
-   is by then - DrawSprocket may have changed the resolution meanwhile, so a
-   saved copy of the old region would be the wrong size. The height is the
+   is by then - the resolution may have changed meanwhile, so a saved copy
+   of the old region could be the wrong size. The height is the
    one the system had when ZSNES started. */
 
 static void menubar_strip(RgnHandle const rgn)
@@ -631,14 +508,8 @@ static bool make_window(struct SDL_Window* const w)
     Str255 title;
 
     free_window(w);
-    /* The menu bar goes back before the resolution does, and comes away
-       after it changes, so its strip is always the current screen's. */
-    if (w->fullscreen) {
-        screen_reserve(w->w, w->h);
-    } else {
+    if (!w->fullscreen)
         hide_menubar(0);
-        screen_release();
-    }
     screen = (**GetMainDevice()).gdRect;
 
     if (!w->opengl) {
@@ -729,9 +600,6 @@ SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, 
     return win;
 }
 
-/* The display mode stays: the frontend closes and opens its window on every
-   mode change, and the next one is most often full screen again. A windowed
-   one, or quitting, puts the desktop back. */
 void zs3_DestroyWindow(SDL_Window* const win)
 {
     if (win && window_open) {
@@ -1219,13 +1087,6 @@ static void window_resized(void)
 
 static void handle(EventRecord* const ev)
 {
-    if (dsp_ctx) {
-        Boolean done = false;
-
-        DSpProcessEvent(ev, &done);
-        if (done)
-            return;
-    }
     switch (ev->what) {
     case mouseDown: {
         WindowPtr w;
@@ -1341,7 +1202,6 @@ static void handle(EventRecord* const ev)
             int const resume = (ev->message & resumeFlag) != 0;
 
             focused = resume;
-            screen_pause(!resume); /* the desktop's resolution while away */
             push_type(resume ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST);
             if (!resume) {
                 show_cursor();
@@ -1692,12 +1552,6 @@ void macos9_shutdown(void)
     }
     if (window_open)
         zs3_DestroyWindow(&the_window);
-    hide_menubar(0);
-    screen_release(); /* the desktop's resolution back */
-    if (dsp_state == 1) {
-        DSpShutdown();
-        dsp_state = 0;
-    }
     hide_menubar(0);
     show_cursor();
     macos9_close_log();
