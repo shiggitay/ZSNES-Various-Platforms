@@ -33,6 +33,12 @@ Radeon, GeForce); without them those modes fall back to 512x448 window.
 - Video > Show FPS (Command-F) toggles the frame counter.
 - Shift-Command-F, Command-Return, Option-Return or Video > Full Screen switch
   between your last windowed and your last full-screen mode.
+- Video > Sync to Monitor (OpenGL modes) waits for the screen's refresh:
+  no tearing, but on a monitor not running at 60 Hz it costs frames. It is
+  off each time ZSNES starts; ZSNES's own VSync setting has no effect here.
+- The FPS counter shows frames drawn. When the Mac falls behind, ZSNES
+  skips drawing some frames to keep the game at full speed, so the counter
+  can read under 60 while the game itself runs at the right pace.
 - Thousands of colors (16-bit) is faster than Millions.
 
 NAMES
