@@ -29,14 +29,14 @@ cd "$ROOT"
 SRCS=$(make -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' zsnes-print-srcs \
     ARCH=LINUX CPU=ppc WITH_SDL12=yes WITH_SDL=yes WITH_PNG= WITH_OPENGL= BUILD_DIR="$OUT/unused" 2>/dev/null |
     tr ' ' '\n' | grep -v -e '^unix/sdl12compat.c$' -e '^unix/net_transport.c$' -e '^unix/safelib.c$' -e '^mmlib/linux.c$' | tr '\n' ' ')
-SRCS="$SRCS unix/gl_draw.c macos9/toolbox.c macos9/gl.c macos9/posix.c macos9/net_stub.c macos9/safelib.c"
+SRCS="$SRCS unix/gl_draw.c unix/glupload.c macos9/toolbox.c macos9/gl.c macos9/posix.c macos9/net_stub.c macos9/safelib.c"
 
 DEFS="-DZSNES_MACOS9 -D__UNIXSDL__ -DZSNES_SDL12 -D__OPENGL__ -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
 # Scheduled for the G3 and G4 (-mtune changes no instructions: it still
 # runs on a 601 or a 604).
 CFLAGS="-std=gnu11 -O2 -mtune=750 -fno-strict-aliasing -mminimal-toc \
  -Wall -Wno-unused-parameter -Wno-multichar -Wno-unused-but-set-variable -Wno-incompatible-pointer-types -Wno-format -Wno-char-subscripts -Werror=implicit-function-declaration \
- -I$ROOT/macos9/include -I$OUT -include $ROOT/macos9/compat.h ${MACOS9_CFLAGS:-}"
+ -I$ROOT/macos9/include -I$ROOT/unix/glcompat -I$OUT -include $ROOT/macos9/compat.h ${MACOS9_CFLAGS:-}"
 
 mkdir -p "$OUT"
 

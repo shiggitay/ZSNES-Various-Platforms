@@ -241,10 +241,11 @@ WITH_PNG      := yes
 WITH_SDL      := $(if $(filter $(ARCH),$(UNIXSDL_ARCHES)),yes,)
 WITH_PIPEWIRE :=
 WITH_AO       :=
-# The OpenGL and accelerated paths are SDL3's; with SDL 1.2 it is software.
-ifeq ($(WITH_SDL12),yes)
-override WITH_OPENGL :=
-endif
+# With SDL 1.2, OpenGL comes through SDL at run time (unix/sdl12gl.c), so
+# the build needs neither GL headers (unix/glcompat has the subset used) nor
+# libGL, and the binary starts on a machine without them. The SDL3
+# accelerated renderer is not built.
+GL_LIB := $(if $(filter yes,$(WITH_SDL12)),,-lGL)
 
 # Cross builds resolve libraries from the target sysroot.
 HOST_CPU_NORM := $(HOST_CPU_FAMILY)
@@ -354,7 +355,7 @@ endif
 endif
 endif
 
-ifeq ($(CROSS_BUILD),yes)
+ifeq ($(CROSS_BUILD)$(WITH_SDL12),yes)
 ifdef WITH_OPENGL
 GL_HEADER_AVAILABLE := $(shell $(or $(CC_TARGET),$(CC)) $(ARCH_CFLAGS) \
   -E -include GL/gl.h -x c /dev/null >/dev/null 2>&1 && echo yes)
@@ -769,7 +770,10 @@ SRCS += unix/lib.c
 SRCS += unix/safelib.c
 ifeq ($(WITH_SDL12),yes)
 SRCS += unix/sdl12compat.c
+SRCS += unix/sdl12gl.c
+SRCS += unix/glupload.c
 CFGDEFS += -DZSNES_SDL12
+CFLAGS += -Iunix/glcompat
 else
 SRCS += unix/sdl_render.c
 endif
@@ -809,7 +813,7 @@ else
 SRCS += mmlib/linux.c
 
 ifdef WITH_OPENGL
-LDFLAGS += -lGL
+LDFLAGS += $(GL_LIB)
 endif
 endif
 else
@@ -817,7 +821,7 @@ SRCS += mmlib/linux.c
 
 
 ifdef WITH_OPENGL
-LDFLAGS += -lGL
+LDFLAGS += $(GL_LIB)
 endif
 
 endif

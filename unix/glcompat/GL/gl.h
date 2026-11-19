@@ -1,9 +1,10 @@
 /* The OpenGL 1.1 subset ZSNES's immediate-mode renderer (unix/gl_draw.c)
-   uses, for Mac OS 9's OpenGLLibrary, which Retro68's headers do not cover.
-   Values are the standard ones. Texture uploads go through macos9/gl.c, which
-   converts the 5:6:5 pixels for an OpenGL older than 1.2. */
-#ifndef ZSNES_MACOS9_GL_H
-#define ZSNES_MACOS9_GL_H
+   uses, for the builds that reach OpenGL through a layer of their own: Mac
+   OS 9's OpenGLLibrary (macos9/gl.c), whose headers Retro68 lacks, and SDL
+   1.2, which loads the library at run time (unix/sdl12gl.c). Values are the
+   standard ones. Texture uploads go through unix/glupload.c. */
+#ifndef ZSNES_GLCOMPAT_GL_H
+#define ZSNES_GLCOMPAT_GL_H
 
 typedef unsigned int GLenum;
 typedef unsigned int GLbitfield;
@@ -56,8 +57,8 @@ typedef void GLvoid;
 #define GL_COLOR_BUFFER_BIT 0x00004000
 #define GL_UNSIGNED_SHORT_5_6_5 0x8363
 
-/* Uploads and pixel-store state go through macos9/gl.c. */
-#ifndef ZSNES_MACOS9_GL_IMPL
+/* Uploads and pixel-store state go through unix/glupload.c. */
+#ifndef ZGL_IMPL
 #define glTexImage2D zgl_TexImage2D
 #define glTexSubImage2D zgl_TexSubImage2D
 #define glPixelStorei zgl_PixelStorei

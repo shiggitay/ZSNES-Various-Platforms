@@ -239,8 +239,8 @@ static int UseLegacyGL(void)
     static int cached = -1;
 
     if (cached < 0) {
-#ifdef ZSNES_MACOS9
-        cached = 1; /* no SDL_Renderer there: the OpenGL modes are AGL's */
+#if defined(ZSNES_MACOS9) || defined(ZSNES_SDL12)
+        cached = 1; /* no SDL_Renderer there: OpenGL is AGL's or SDL 1.2's */
 #else
         char const* e = getenv("ZSNES_LEGACY_GL");
         cached = (e && *e == '1') ? 1 : 0;
@@ -1921,11 +1921,12 @@ void initwinvideo(void)
 
         FullScreen = GUIWFVID[cvidmode];
 #ifdef __OPENGL__
-#ifdef ZSNES_MACOS9
-        /* A Mac without OpenGL: its modes fall back as in a build without. */
+#if defined(ZSNES_MACOS9) || defined(ZSNES_SDL12)
+        /* OpenGL is optional on these: without it (or without a renderer on
+           the graphics card), its modes fall back as in a build without. */
         {
-            int macos9_gl_available(void);
-            if (CheckOGLMode() && !macos9_gl_available()) {
+            int zsnes_gl_available(void);
+            if (CheckOGLMode() && !zsnes_gl_available()) {
                 cvidmode = 2;
             }
         }
@@ -2028,6 +2029,18 @@ void initwinvideo(void)
         }
         /* Returning here would resume drawing into the destroyed window.
            The retry cannot loop: cvidmode is then already lastGoodMode. */
+#ifdef __OPENGL__
+        /* An OpenGL mode that would not start, with no earlier mode to go
+           back to: the software window, as when OpenGL is missing. */
+        if (lastGoodMode == ~0u && CheckOGLMode()) {
+            fprintf(stderr, "Video mode %u (OpenGL) failed to start, using 512x448 window\n",
+                (unsigned)cvidmode);
+            cvidmode = 2;
+            CurMode = ~0u;
+            initwinvideo();
+            return;
+        }
+#endif
         if (lastGoodMode != ~0u && cvidmode != lastGoodMode) {
             fprintf(stderr, "Video mode %u failed to start, reverting to %u\n",
                 (unsigned)cvidmode, (unsigned)lastGoodMode);

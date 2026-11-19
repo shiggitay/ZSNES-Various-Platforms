@@ -13,6 +13,14 @@
 #define SDL12COMPAT_IMPL
 #include "sdl12compat.h"
 
+#define ZGL_IMPL
+#include <GL/gl.h>
+
+#include "glupload.h"
+
+extern unsigned char FPSOn;     /* video/procvid.c */
+extern unsigned char frameskip; /* the configuration's; 0 is automatic */
+
 typedef SDL_Surface SDL12_Surface;
 typedef SDL_Event SDL12_Event;
 typedef SDL_Rect SDL12_Rect;
@@ -299,6 +307,41 @@ static bool set_mode(struct SDL_Window* const win)
     return true;
 }
 
+/* --- OpenGL, through SDL 1.2 and found at run time (unix/sdl12gl.c) ------ */
+
+int zsnes_sdl12_gl_load(void);
+static int gl_state = -1; /* -1 not tried, 0 unavailable, 1 loaded */
+
+/* The frontend's question (unix/sdllink.c): can the OpenGL modes run? */
+int zsnes_gl_available(void);
+int zsnes_gl_available(void)
+{
+    if (gl_state < 0) {
+        gl_state = 0;
+        if (!SDL_WasInit(SDL_INIT_VIDEO) && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
+            return 0;
+        if (SDL_GL_LoadLibrary(NULL) != 0)
+            fprintf(stderr, "OpenGL: %s; the OpenGL video modes are off\n", SDL_GetError());
+        else if (zsnes_sdl12_gl_load())
+            gl_state = 1;
+    }
+    return gl_state;
+}
+
+/* Mesa's software renderer, or GLX drawing through the X server, is slower
+   than ZSNES's own software modes: the OpenGL modes are only worth it with a
+   renderer on the graphics card. ZSNES_SDL12_SOFTGL=1 allows the others. */
+static int gl_accelerated(void)
+{
+    char const* const r = (char const*)glGetString(GL_RENDERER);
+    char const* const e = getenv("ZSNES_SDL12_SOFTGL");
+
+    if (e && *e == '1')
+        return 1;
+    return r && !strstr(r, "Software") && !strstr(r, "Indirect") && !strstr(r, "X11")
+        && !strstr(r, "GDI");
+}
+
 SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, SDL_WindowFlags const flags)
 {
     struct SDL_Window* const win = &the_window;
@@ -307,6 +350,20 @@ SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, 
     win->w = w;
     win->h = h;
     win->flags = SDL_SWSURFACE | SDL_ANYFORMAT;
+    if (flags & SDL_WINDOW_OPENGL) {
+        char const* const v = getenv("ZSNES_SDL12_VSYNC");
+
+        if (!zsnes_gl_available()) {
+            SDL_SetError("OpenGL is not available");
+            return NULL;
+        }
+        win->flags = SDL_OPENGL;
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        /* No wait for the monitor unless asked: ZSNES keeps its own 60 Hz
+           clock, and a monitor at another rate then makes every frame wait
+           twice. SDL 1.2.10 and later honour it; earlier ones ignore it. */
+        SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, v && *v == '1' ? 1 : 0);
+    }
     if (flags & SDL_WINDOW_FULLSCREEN)
         win->flags |= SDL_FULLSCREEN;
     if (flags & SDL_WINDOW_RESIZABLE)
@@ -351,6 +408,55 @@ bool zs3_SetWindowFullscreen(SDL_Window* const win, bool const fs)
 }
 
 bool zs3_SetWindowPosition(SDL_Window* const win, int const x, int const y) { return true; }
+
+/* A context is the window's own in SDL 1.2: made with the mode, kept across
+   a resize or a switch to and from full screen. */
+bool zs3_GL_SetAttribute(int const attr, int const value) { return true; }
+bool zs3_GL_SetSwapInterval(int const interval) { return true; } /* see ZSNES_SDL12_VSYNC */
+
+SDL_GLContext zs3_GL_CreateContext(SDL_Window* const win)
+{
+    if (!win || !(win->flags & SDL_OPENGL) || !SDL_GetVideoSurface())
+        return NULL;
+    /* Look the functions up again, every time: closing the frontend's
+       previous window stopped SDL's video, which unloads libGL, and setting
+       this mode loaded it afresh - elsewhere in memory, so the addresses
+       found before pointed at nothing (a crash in the first GL call). */
+    if (!zsnes_sdl12_gl_load()) {
+        gl_state = 0;
+        SDL_SetError("the OpenGL library lacks a function ZSNES uses");
+        return NULL;
+    }
+    zgl_detect();
+    if (!gl_accelerated()) {
+        fprintf(stderr, "OpenGL: %s draws in software, slower than ZSNES's own modes; "
+                        "the OpenGL video modes are off (ZSNES_SDL12_SOFTGL=1 allows them)\n",
+            (char const*)glGetString(GL_RENDERER));
+        gl_state = 0;
+        SDL_SetError("no OpenGL on the graphics card");
+        return NULL;
+    }
+    return (SDL_GLContext)win;
+}
+
+bool zs3_GL_DestroyContext(SDL_GLContext const ctx) { return true; }
+
+bool zs3_GL_SwapWindow(SDL_Window* const win)
+{
+    SDL_GL_SwapBuffers();
+    return true;
+}
+
+/* The frontend's SDL_Renderer modes (unix/sdl_render.c) are SDL3's; with SDL
+   1.2 the OpenGL modes are the immediate-mode renderer (unix/gl_draw.c). */
+int sr_start(int width, int height, int req_depth, int fs);
+void sr_end(void);
+void sr_clearwin(void);
+void sr_drawwin(void);
+int sr_start(int width, int height, int req_depth, int fs) { return 0; }
+void sr_end(void) { }
+void sr_clearwin(void) { }
+void sr_drawwin(void) { }
 
 /* No pointer grab. SDL 1.2's X11 grab retries every 100 ms until the X
    server grants it, with no limit; on Yellow Dog Linux 3 the server kept
@@ -605,6 +711,14 @@ static int translate(SDL12_Event const* const in, ZEvent* const e)
         }
         return 0;
     case SDL_VIDEORESIZE:
+        /* SDL 1.2 only reports the new size; the window's surface - and an
+           OpenGL drawable - follow when the mode is set to it. The context
+           survives: SDL 1.2 resizes the X window in place. */
+        if (window_open && (the_window.flags & SDL_RESIZABLE)) {
+            the_window.w = in->resize.w;
+            the_window.h = in->resize.h;
+            set_mode(&the_window);
+        }
         e->type = SDL_EVENT_WINDOW_RESIZED;
         e->window.data1 = in->resize.w;
         e->window.data2 = in->resize.h;
@@ -612,6 +726,23 @@ static int translate(SDL12_Event const* const in, ZEvent* const e)
     case SDL_KEYDOWN:
     case SDL_KEYUP: {
         SDLKey const k = in->key.keysym.sym;
+
+        /* The Mac build's Command-key shortcuts, on Control here: Ctrl-F the
+           frame counter, Ctrl-Shift-F full screen - sent on as Alt-Enter,
+           ZSNES's own toggle, which works as well. */
+        if (in->type == SDL_KEYDOWN && k == SDLK_f && (in->key.keysym.mod & KMOD_CTRL)) {
+            if (in->key.keysym.mod & KMOD_SHIFT) {
+                e->type = SDL_EVENT_KEY_DOWN;
+                e->key.scancode = SDL_SCANCODE_RETURN;
+                e->key.key = (SDL_Keycode)0x0Du; /* SDL3's SDLK_RETURN */
+                e->key.mod = SDL_KMOD_ALT;
+                e->key.down = true;
+                return 1;
+            }
+            frameskip = 0; /* ZSNES counts frames only with automatic frameskip */
+            FPSOn ^= 1;
+            return 0;
+        }
 
         e->type = in->type == SDL_KEYDOWN ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
         e->key.scancode = scancode_of(k);
