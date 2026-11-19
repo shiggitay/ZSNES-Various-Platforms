@@ -241,6 +241,56 @@ static void m7_store(struct m7regs const* const r)
     M7PDI = (zreg)(uintptr_t)r->edi;
 }
 
+/* Mode7Process's repeating walk, one scanline of 256 pixels. The registers,
+   the positions and the steps are locals for the length of the line and go
+   back to their globals at the end: the pixel stores could otherwise alias
+   them as far as the compiler knows, and it reloaded and stored each one on
+   every pixel. The steps are the assembly's, one for one. */
+static inline __attribute__((always_inline)) void m7_walk(struct m7regs* const r,
+    enum m7_writer const w, u2 const* const pal)
+{
+    u4 eax = r->eax, ebx = r->ebx, ecx = r->ecx, edx = r->edx;
+    u1* esi = r->esi;
+    u1 const* edi = r->edi;
+    u4 yrpos = mmode7yrpos;
+    u4 const xadder = mmode7xadder, yadder = mmode7yadder;
+    u4 const xadd2 = mmode7xadd2, yadd2 = mmode7yadd2;
+    u1 const xinc = mmode7xinc, yinc = mmode7yinc;
+    u4 n = mtemp;
+
+    do {
+        if (byte1(eax) & 0x08u) {
+            ebx = set_lo(ebx, (u1)((u1)ebx + xinc));
+            ecx = (u4)vrama[ebx] << 7;
+            eax -= xadd2;
+            edi = vrama + ecx;
+        }
+        if (byte1(yrpos) & 0x08u) {
+            ebx = set_hi(ebx, (u1)((u1)(ebx >> 8) - yinc));
+            ebx &= 0x7FFFu;
+            ecx = (u4)vrama[ebx] << 7;
+            yrpos += yadd2;
+            edi = vrama + ecx;
+        }
+        ecx = set_hi(ecx, byte1(eax));
+        ecx = set_lo(ecx, byte1(yrpos));
+        yrpos -= yadder;
+        edx = mode7tab[ecx];
+        eax += xadder;
+        edx = set_lo(edx, edi[edx]);
+        edx = m7_write(w, &esi, pal, edx);
+    } while (--n != 0);
+
+    mtemp = 0;
+    mmode7yrpos = yrpos;
+    r->eax = eax;
+    r->ebx = ebx;
+    r->ecx = ecx;
+    r->edx = edx;
+    r->esi = esi;
+    r->edi = (u1*)edi;
+}
+
 void c_Mode7Process(void)
 {
     enum m7_writer const w = (enum m7_writer)M7PWriter;
@@ -262,28 +312,40 @@ void c_Mode7Process(void)
     r.eax = mmode7xrpos;
     r.ebx = mmode7ptr;
 
-    do {
-        if (byte1(r.eax) & 0x08u) {
-            r.ebx = set_lo(r.ebx, (u1)((u1)r.ebx + mmode7xinc));
-            r.ecx = (u4)vrama[r.ebx] << 7;
-            r.eax -= mmode7xadd2;
-            r.edi = vrama + r.ecx;
-        }
-        if (byte1(mmode7yrpos) & 0x08u) {
-            r.ebx = set_hi(r.ebx, (u1)((u1)(r.ebx >> 8) - mmode7yinc));
-            r.ebx &= 0x7FFFu;
-            r.ecx = (u4)vrama[r.ebx] << 7;
-            mmode7yrpos += mmode7yadd2;
-            r.edi = vrama + r.ecx;
-        }
-        r.ecx = set_hi(r.ecx, byte1(r.eax));
-        r.ecx = set_lo(r.ecx, byte1(mmode7yrpos));
-        mmode7yrpos -= mmode7yadder;
-        r.edx = mode7tab[r.ecx];
-        r.eax += mmode7xadder;
-        r.edx = set_lo(r.edx, r.edi[r.edx]);
-        r.edx = m7_write(w, &r.esi, pal, r.edx);
-    } while (--mtemp != 0);
+    /* One walk per writer, so the writer's switch is decided once a line and
+       not once a pixel. */
+    switch (w) {
+    case M7W_NORMAL:
+        m7_walk(&r, M7W_NORMAL, pal);
+        break;
+    case M7W_NORMAL_T:
+        m7_walk(&r, M7W_NORMAL_T, pal);
+        break;
+    case M7W_NORMAL_MS:
+        m7_walk(&r, M7W_NORMAL_MS, pal);
+        break;
+    case M7W_NORMAL_MST:
+        m7_walk(&r, M7W_NORMAL_MST, pal);
+        break;
+    case M7W_NORMAL_S:
+        m7_walk(&r, M7W_NORMAL_S, pal);
+        break;
+    case M7W_EXTBG:
+        m7_walk(&r, M7W_EXTBG, pal);
+        break;
+    case M7W_EXTBG_T:
+        m7_walk(&r, M7W_EXTBG_T, pal);
+        break;
+    case M7W_EXTBG_MS:
+        m7_walk(&r, M7W_EXTBG_MS, pal);
+        break;
+    case M7W_EXTBG_MST:
+        m7_walk(&r, M7W_EXTBG_MST, pal);
+        break;
+    case M7W_EXTBG_S:
+        m7_walk(&r, M7W_EXTBG_S, pal);
+        break;
+    }
 
     m7_store(&r);
 }

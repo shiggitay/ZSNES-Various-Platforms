@@ -62,9 +62,18 @@ typedef struct {
     zreg ax, bx, cx, dx, si, di, bp;
 } regs;
 
+/* The whole chain below inlines into the two entry points, by force. The
+   form (window kind, sub screen, palette half...) is a constant at each of
+   dispatch's arms, so every arm gets a pixel loop of its own with the form's
+   tests folded away, and `regs` - a local of the entry points that nothing
+   else sees - lives in registers rather than being written back on every
+   pixel. Out of line, the per-pixel call and re-tests were most of the cost
+   of a sprite-heavy frame. */
+#define NG_HOT static inline __attribute__((always_inline))
+
 /* One pixel. `mask` is the a-form/b-form split: the a-forms skip a pixel a
    higher-priority sprite already claimed and then claim it themselves. */
-static void spr_px(regs* const r, u1 const* const src, u4 const k,
+NG_HOT void spr_px(regs* const r, u1 const* const src, u4 const k,
     u4 const n, u2* const edi, u2 const* const pal, u1 const* const win,
     u1 const adder, u1 const dl, sform const f, int const mask,
     int const hires)
@@ -152,7 +161,7 @@ static void spr_px(regs* const r, u1 const* const src, u4 const k,
 
 /* sprdrawa16b / sprdrawaf16b: eight pixels, the flipped form walking the tile
    forwards and the screen backwards. */
-static void spr_row(regs* const r, u1 const* const src, u2* const edi,
+NG_HOT void spr_row(regs* const r, u1 const* const src, u2* const edi,
     u2 const* const pal, u1 const* const win, u1 const adder, u1 const dl,
     sform const f, int const mask, int const hires, int const flip)
 {
@@ -165,7 +174,7 @@ static void spr_row(regs* const r, u1 const* const src, u2* const edi,
 
 /* sprdrawa / sprdrawaf with sprdrawpra2: a sprite of another priority claims
    its pixels and draws nothing. Two pixels come out of each 16-bit load. */
-static void spr_mark(regs* const r, u1 const* const src, u1 const dl,
+NG_HOT void spr_mark(regs* const r, u1 const* const src, u1 const dl,
     int const flip)
 {
     for (u4 k = 0; k < 8; k++) {
@@ -194,7 +203,7 @@ static void clear_prio(regs* const r)
    the palette in dh rather than ch. */
 /* esi and ebx are pushed on entry and popped before every return, so the
    caller gets them back unchanged; only eax, ecx and edi are outputs. */
-static void spr_loop(regs* const r, u2* edi, u2 const* const pal,
+NG_HOT void spr_loop(regs* const r, u2* edi, u2 const* const pal,
     u1 const* const win, sform const f, int const hires, u4 const y)
 {
     SpriteInfo const* esi;
@@ -269,7 +278,7 @@ static void spr_loop(regs* const r, u2* edi, u2 const* const pal,
 /* The dispatch. Which of the fourteen arms runs is decided by whether this
    layer is on the sub screen, whether the sub screen is a fill, whether colour
    maths applies, and which of the two window masks is active. */
-static void dispatch(regs* const r, u4 const y, int const hires)
+NG_HOT void dispatch(regs* const r, u4 const y, int const hires)
 {
     u2* edi = (u2*)(uintptr_t)r->si;
     u2 const* const pal = (u2 const*)(uintptr_t)cpalval[y];

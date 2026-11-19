@@ -42,6 +42,12 @@
 static int toolbox_ready;
 static int quit_requested;
 static int fullscreen_requested;
+/* Waiting for the monitor's refresh at each OpenGL swap. Off unless asked
+   for, whatever ZSNES's own VSync setting says (on, by default): ZSNES keeps
+   its own 60 Hz clock as well, and a monitor at 67, 75 or 85 Hz then makes
+   every frame wait twice, which costs frames on a machine with none to
+   spare. On a 60 Hz screen, turning it on removes tearing. */
+static int mac_vsync;
 static short mbar_height = -1; /* the menu bar's, before ZSNES hides it */
 static MenuHandle apple_menu, file_menu, video_menu;
 
@@ -147,6 +153,8 @@ void macos9_init(void)
     /* Shift-Command-F and Command-Return, which a classic menu cannot show
        as its shortcut: handle() and poll_keys() catch them. */
     pstr(s, "Full Screen (Shift-Cmd-F or Cmd-Return)");
+    AppendMenu(video_menu, s);
+    pstr(s, "Sync to Monitor (OpenGL)");
     AppendMenu(video_menu, s);
     InsertMenu(video_menu, 0);
     DrawMenuBar();
@@ -822,14 +830,11 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
 
 /* --- OpenGL --------------------------------------------------------------- */
 
-static int gl_vsync;
-
 bool zs3_GL_SetAttribute(SDL_GLAttr const attr, int const value) { return true; }
 
 bool zs3_GL_SetSwapInterval(int const interval)
 {
-    gl_vsync = interval != 0;
-    macos9_gl_set_vsync(gl_vsync);
+    (void)interval; /* see mac_vsync */
     return true;
 }
 
@@ -837,7 +842,7 @@ SDL_GLContext zs3_GL_CreateContext(SDL_Window* const win)
 {
     if (!win || !win->win || !win->opengl)
         return NULL;
-    gl_port_ctx = macos9_gl_create(win->win, gl_vsync);
+    gl_port_ctx = macos9_gl_create(win->win, mac_vsync);
     if (!gl_port_ctx)
         set_error("No accelerated OpenGL for this screen");
     return gl_port_ctx;
@@ -1119,6 +1124,9 @@ static void do_menu(long const choice)
         FPSOn ^= 1;
     } else if (menu == MENU_VIDEO && item == 2) {
         fullscreen_requested = 1;
+    } else if (menu == MENU_VIDEO && item == 3) {
+        mac_vsync = !mac_vsync;
+        macos9_gl_set_vsync(mac_vsync);
     }
     HiliteMenu(0);
 }
@@ -1152,6 +1160,7 @@ static void handle(EventRecord* const ev)
         case inMenuBar:
             show_cursor();
             CheckItem(video_menu, 1, FPSOn != 0);
+            CheckItem(video_menu, 3, mac_vsync != 0);
             do_menu(MenuSelect(ev->where));
             break;
         case inSysWindow:

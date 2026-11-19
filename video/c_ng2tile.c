@@ -57,6 +57,12 @@ extern void c_cachesingle8bng(u4 ecx);
    arguments drawtileng16b took. `chk` is the one table with a scaled index -
    1, 2 or 4 bytes per tile, which is also the width of the test. mode0add
    applies only at 2bpp, because mode 0 backgrounds are 2bpp. */
+/* The line and tile drawers below inline, by force, into the leaves that
+   name them with a constant writer form and depth: each leaf becomes its own
+   loop with those tests folded away, where out of line every pixel paid a
+   call and re-tested them. */
+#define NG2_HOT static inline __attribute__((always_inline))
+
 typedef struct {
     u1* tltype;
     u1 const* chk;
@@ -83,7 +89,7 @@ static depth const d8b = { tltype8b, vidmemch8, 4, vidmemch8s, 1023u, 0,
     ngpalcon8b, &vcache8b, &vcache8bs, c_cachesingle8bng, 6, 1, 0xFFu };
 
 /* testNba's read: chkscale bytes wide, non-zero means decode. */
-static int needs_cache(depth const* const d, u4 const idx)
+NG2_HOT int needs_cache(depth const* const d, u4 const idx)
 {
     u1 const* const p = d->chk + idx * (u4)d->chkscale;
     u4 v = 0;
@@ -107,7 +113,7 @@ enum { W_T = 1,
 
 /* cacheloopstuff / DoCache: decode one tile into the cache, forwards and
    mirrored, taking colours from the palette ebp points at. */
-static void docache(depth const* const d, u4 const tile, u1 const dl,
+NG2_HOT void docache(depth const* const d, u4 const tile, u1 const dl,
     u2 const* const pal)
 {
     u1 const* src = *d->cache + (tile << 6);
@@ -128,7 +134,7 @@ static void docache(depth const* const d, u4 const tile, u1 const dl,
 }
 
 /* A full row of eight pixels: four dwords out of the cache. */
-static void w_full(u1* const edi, u1 const* const src, int const f)
+NG2_HOT void w_full(u1* const edi, u1 const* const src, int const f)
 {
     u4 i;
     for (i = 0; i < 16; i += 4) {
@@ -147,7 +153,7 @@ static void w_full(u1* const edi, u1 const* const src, int const f)
 
 /* Partial tile: one pixel, skipped when the cache holds the transparent
    marker. */
-static void w_part(u1* const edi, u1 const* const src, u4 const off,
+NG2_HOT void w_part(u1* const edi, u1 const* const src, u4 const off,
     int const f)
 {
     u2 v = ld16u(src + off);
@@ -172,7 +178,7 @@ static void w_part(u1* const edi, u1 const* const src, u4 const off,
    eight rows. A map entry is one of these at 8x8 and two of them at 16x16, so
    both drawers share it. `pw` is the per-pixel writer for the windowed arms;
    without one the rows go out whole. */
-static void draw_half(depth const* const d, u4 const idx, u4 const edx,
+NG2_HOT void draw_half(depth const* const d, u4 const idx, u4 const edx,
     u1* const edi, u2 const* const pal, u4 const eax, int const f)
 {
     u1 const dl = (u1)edx;
@@ -216,7 +222,7 @@ static void draw_half(depth const* const d, u4 const idx, u4 const edx,
     }
 }
 
-static void tile_body(zreg* const r, int const f, depth const* const d)
+NG2_HOT void tile_body(zreg* const r, int const f, depth const* const d)
 {
     u4 ecx = r[R_ECX], edx;
 
@@ -239,7 +245,7 @@ static void tile_body(zreg* const r, int const f, depth const* const d)
 }
 
 /* %5 - the tail every path falls into, including the priority-bit skip. */
-static void finline(zreg* const r)
+NG2_HOT void finline(zreg* const r)
 {
     bg1totng[ng16bbgval]++;
     r[R_EAX] = (r[R_EAX] & 0xFFFF0000u) | (u2)((u2)r[R_EAX] + 2u);
@@ -250,7 +256,7 @@ static void finline(zreg* const r)
 
 /* drawtile16b: thirty-three tiles across a line. A tile whose priority bit
    does not match this pass is skipped straight to the tail. */
-static void drawtile_line(zreg* const r, int const f, depth const* const d)
+NG2_HOT void drawtile_line(zreg* const r, int const f, depth const* const d)
 {
     tleftn = 33;
     for (;;) {
@@ -276,7 +282,7 @@ enum { L_T = 1, /* the second palette, 512 bytes on */
     L_MS = 2, /* the sub screen as well */
     L_S = 4 }; /* the sub screen only */
 
-static void l_pix(u1* const edi, u1 const* const src, u4 const i, u4 const ofs,
+NG2_HOT void l_pix(u1* const edi, u1 const* const src, u4 const i, u4 const ofs,
     u1 const dl, u2 const* const pal, u4 const mask, int const f)
 {
     u4 const b = (u1)(src[i] + dl);
@@ -295,7 +301,7 @@ static void l_pix(u1* const edi, u1 const* const src, u4 const i, u4 const ofs,
 }
 
 /* One tile's worth of one scanline: eight pixels. */
-static void line_half(depth const* const d, u4 const idx, u1 const dl,
+NG2_HOT void line_half(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f)
 {
     u4 const tile = ld16le(vrama + eax);
@@ -317,7 +323,7 @@ static void line_half(depth const* const d, u4 const idx, u1 const dl,
     }
 }
 
-static void line_body(zreg* const r, int const f, depth const* const d)
+NG2_HOT void line_body(zreg* const r, int const f, depth const* const d)
 {
     u4 ecx = r[R_ECX], edx;
 
@@ -343,7 +349,7 @@ static void line_body(zreg* const r, int const f, depth const* const d)
 
 /* drawline16bmacro. Unlike the tile drawers, every exit here takes the mosaic
    tail when one is due. */
-static u4 drawline_line(zreg* const r, int const f, depth const* const d)
+NG2_HOT u4 drawline_line(zreg* const r, int const f, depth const* const d)
 {
     tleftn = 33;
     for (;;) {
@@ -366,7 +372,7 @@ static u4 drawline_line(zreg* const r, int const f, depth const* const d)
  * when flipped vertically) picks the row pair and flipx starts at the right
  * half. The half index lives in cx, so it wraps inside the low word while
  * ngptrdat2's high half stays. Halves are counted by toggling switch16x16. */
-static void tile_body_16x16(zreg* const r, int const f, depth const* const d)
+NG2_HOT void tile_body_16x16(zreg* const r, int const f, depth const* const d)
 {
     u4 const eax = r[R_EAX];
     u4 const tile = ld16le(vrama + eax);
@@ -407,7 +413,7 @@ static void tile_body_16x16(zreg* const r, int const f, depth const* const d)
 
 /* %%ntile: the 16x16 tail. Unlike finline it leaves edi alone - the two halves
    advanced it by 32 between them, and the skipped path adds that itself. */
-static void finline_16x16(zreg* const r)
+NG2_HOT void finline_16x16(zreg* const r)
 {
     bg1totng[ng16bbgval]++;
     r[R_EAX] = (r[R_EAX] & 0xFFFF0000u) | (u2)((u2)r[R_EAX] + 2u);
@@ -416,7 +422,7 @@ static void finline_16x16(zreg* const r)
 }
 
 /* drawtile16b16x16: seventeen entries across a line, not thirty-three. */
-static void drawtile_line_16x16(zreg* const r, int const f, depth const* const d)
+NG2_HOT void drawtile_line_16x16(zreg* const r, int const f, depth const* const d)
 {
     tleftn = 17;
     for (;;) {
@@ -991,7 +997,7 @@ NG2_TILE16_WIN_LEAVES(8b)
  * The 8x8 line drawer inside the 16x16 two-half walk. The full-tile path is
  * live here (only drawlineng16b disabled it), so this family needs procpixels
  * as well as procpixelst: two pixels per dword, no transparency test. */
-static void l_pair(u1* const edi, u1 const* const src, u4 const lo,
+NG2_HOT void l_pair(u1* const edi, u1 const* const src, u4 const lo,
     u4 const hi, u4 const ofs, u1 const dl, u2 const* const pal, int const f)
 {
     u4 const off = (f & L_T) ? 256u : 0u;
@@ -1011,7 +1017,7 @@ static void l_pair(u1* const edi, u1 const* const src, u4 const lo,
     }
 }
 
-static void line_half_full(depth const* const d, u4 const idx, u1 const dl,
+NG2_HOT void line_half_full(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f)
 {
     u4 const tile = ld16le(vrama + eax);
@@ -1036,7 +1042,7 @@ static void line_half_full(depth const* const d, u4 const idx, u1 const dl,
         l_pix(edi, src, flipx ? 7u - i : i, i * 2u, dl, pal, d->lmask, f);
 }
 
-static void line_body_16x16(zreg* const r, int const f, depth const* const d)
+NG2_HOT void line_body_16x16(zreg* const r, int const f, depth const* const d)
 {
     u4 const eax = r[R_EAX];
     u4 const tile = ld16le(vrama + eax);
@@ -1075,7 +1081,7 @@ static void line_body_16x16(zreg* const r, int const f, depth const* const d)
     r[R_EDI] = (zreg)(uintptr_t)edi;
 }
 
-static u4 drawline_line_16x16(zreg* const r, int const f, depth const* const d)
+NG2_HOT u4 drawline_line_16x16(zreg* const r, int const f, depth const* const d)
 {
     tleftn = 17;
     for (;;) {
@@ -1102,7 +1108,7 @@ static u4 drawline_line_16x16(zreg* const r, int const f, depth const* const d)
 #define FIELD1 (75036u * 4u)
 
 /* A pixel with no transparency test - the full paths never had one. */
-static void l_write(u1* const edi, u1 const* const src, u4 const i,
+NG2_HOT void l_write(u1* const edi, u1 const* const src, u4 const i,
     u4 const ofs, u1 const dl, u2 const* const pal, int const f)
 {
     u4 const off = (f & L_T) ? 256u : 0u;
@@ -1113,7 +1119,7 @@ static void l_write(u1* const edi, u1 const* const src, u4 const i,
         st16u(edi + ofs + SUB, (f & L_T) ? (u2)(v & UnusedBitXor[0]) : v);
 }
 
-static void line_half_16x8(depth const* const d, u4 const idx, u1 const dl,
+NG2_HOT void line_half_16x8(depth const* const d, u4 const idx, u1 const dl,
     u1* const edi, u4 const eax, int const f, int const hires)
 {
     u4 const tile = ld16le(vrama + eax);
@@ -1147,7 +1153,7 @@ static void line_half_16x8(depth const* const d, u4 const idx, u1 const dl,
     }
 }
 
-static void line_body_16x8(zreg* const r, int const f, depth const* const d,
+NG2_HOT void line_body_16x8(zreg* const r, int const f, depth const* const d,
     int const hires)
 {
     u4 const eax = r[R_EAX];
@@ -1194,7 +1200,7 @@ u4 ng2_line168hits[6];
 
 /* %%ntile for the 16x8 drawer: the halves advanced edi by sixteen between
    them, and the skipped path adds that itself. */
-static u4 drawline_line_16x8(zreg* const r, int const f, depth const* const d)
+NG2_HOT u4 drawline_line_16x8(zreg* const r, int const f, depth const* const d)
 {
     int const hires = curmosaicsz <= 1 && res640 != 0;
 
