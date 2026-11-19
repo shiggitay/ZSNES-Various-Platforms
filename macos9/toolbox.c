@@ -41,6 +41,7 @@
 
 static int toolbox_ready;
 static int quit_requested;
+static int fullscreen_requested;
 static short mbar_height = -1; /* the menu bar's, before ZSNES hides it */
 static MenuHandle apple_menu, file_menu, video_menu;
 
@@ -142,6 +143,9 @@ void macos9_init(void)
     pstr(s, "Video");
     video_menu = NewMenu(MENU_VIDEO, s);
     pstr(s, "Show FPS/F");
+    AppendMenu(video_menu, s);
+    /* Command-Return, which a menu cannot show; poll_keys() catches it. */
+    pstr(s, "Toggle Full Screen (Cmd-Return)");
     AppendMenu(video_menu, s);
     InsertMenu(video_menu, 0);
     DrawMenuBar();
@@ -1051,6 +1055,14 @@ static void poll_keys(void)
             e.key.scancode = (SDL_Scancode)keymap[k].sc;
             e.key.key = keymap[k].ch ? (SDL_Keycode)keymap[k].ch : ((SDL_Keycode)keymap[k].sc | 0x40000000u);
             e.key.mod = current_mod(now);
+            /* Command-Return (or Enter) goes to the frontend as Alt-Return,
+               ZSNES's full-screen toggle, which it then does not also take
+               for a press of Return - Start, in most games. Option-Return
+               already arrives that way. */
+            if (key_is_down(now, 0x37) && (k == 0x24 || k == 0x4C || k == 0x34)) {
+                e.key.mod |= SDL_KMOD_ALT;
+                e.key.key = '\r'; /* the keypad's Enter too */
+            }
             e.key.down = is != 0;
             push(&e);
         }
@@ -1077,6 +1089,8 @@ static void do_menu(long const choice)
         /* ZSNES counts frames only while it picks the frameskip itself. */
         frameskip = 0;
         FPSOn ^= 1;
+    } else if (menu == MENU_VIDEO && item == 2) {
+        fullscreen_requested = 1;
     }
     HiliteMenu(0);
 }
@@ -1295,6 +1309,21 @@ void zs3_PumpEvents(void)
     if (quit_requested) {
         quit_requested = 0;
         push_type(SDL_EVENT_QUIT);
+    }
+    /* As Option-Return (ZSNES's own Alt-Return), which the frontend answers by
+       swapping between the last windowed and the last full-screen mode - from
+       its own loop, not from inside this one. */
+    if (fullscreen_requested) {
+        SDL_Event e;
+
+        fullscreen_requested = 0;
+        memset(&e, 0, sizeof e);
+        e.type = SDL_EVENT_KEY_DOWN;
+        e.key.scancode = SDL_SCANCODE_RETURN;
+        e.key.key = '\r';
+        e.key.mod = SDL_KMOD_ALT;
+        e.key.down = true;
+        push(&e);
     }
 }
 

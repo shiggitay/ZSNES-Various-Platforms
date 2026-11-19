@@ -29,6 +29,8 @@ Radeon, GeForce); without them those modes fall back to 512x448 window.
   the graphics card scales the picture to fill it, which costs it little.
 - VARIABLE (OpenGL) windows can be resized with the grow box and zoomed.
 - Video > Show FPS (Command-F) toggles the frame counter.
+- Command-Return (or Option-Return, or Video > Toggle Full Screen) switches
+  between your last windowed and your last full-screen mode.
 - Thousands of colors (16-bit) is faster than Millions.
 
 NAMES
