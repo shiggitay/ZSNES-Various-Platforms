@@ -2,8 +2,10 @@
    This is the only file that sees SDL 1.2's own declarations. */
 #include <SDL.h>
 
+#include <sched.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
 
 /* SDL 1.2's names are in scope here. The header's SDL3 types that clash
    with them come in as zs3_..., and its SDL3 constants that clash as ZS3_...;
@@ -737,8 +739,19 @@ bool zs3_RumbleGamepad(SDL_Gamepad* const g, Uint16 const lo, Uint16 const hi, U
 
 /* --- threads and semaphores ----------------------------------------------- */
 
+/* The frontend's one thread of its own is a frame timer that only signals
+   the semaphore below, and it runs as well without it: the waits then simply
+   time out, as on Mac OS 9, which has no threads at all. Yellow Dog Linux 3
+   on a 2.4 kernel - LinuxThreads, one process per thread - hung at the first
+   frame with it running, so it starts only on request (ZSNES_SDL12_THREADS=1).
+   SDL 1.2's audio thread is its own business and unaffected. */
 zs3_Thread* zs3_CreateThread(zs3_ThreadFunction const fn, char const* const name, void* const data)
 {
+    char const* const e = getenv("ZSNES_SDL12_THREADS");
+
+    (void)name;
+    if (!e || *e != '1')
+        return NULL;
     return (zs3_Thread*)SDL_CreateThread(fn, data);
 }
 
@@ -747,11 +760,37 @@ SDL_Semaphore* zs3_CreateSemaphore(Uint32 const n) { return (SDL_Semaphore*)SDL_
 void zs3_DestroySemaphore(SDL_Semaphore* const s) { SDL_DestroySemaphore((SDL_sem*)s); }
 void zs3_SignalSemaphore(SDL_Semaphore* const s) { SDL_SemPost((SDL_sem*)s); }
 
+static double now_ms(void)
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+    return (double)tv.tv_sec * 1000.0 + (double)tv.tv_usec / 1000.0;
+}
+
+/* SDL 1.2's timed wait polls with 1 ms sleeps, which a 2.4 kernel (HZ=100)
+   rounds up to 10 ms or more - most of a frame. Sleep whole ticks while more
+   than one is left, then yield until the time is up. */
 bool zs3_WaitSemaphoreTimeout(SDL_Semaphore* const s, Sint32 const ms)
 {
+    double end;
+
     if (ms < 0)
         return SDL_SemWait((SDL_sem*)s) == 0;
-    return SDL_SemWaitTimeout((SDL_sem*)s, (Uint32)ms) == 0;
+    end = now_ms() + ms;
+    for (;;) {
+        double left;
+
+        if (SDL_SemTryWait((SDL_sem*)s) == 0)
+            return true;
+        left = end - now_ms();
+        if (left <= 0.0)
+            return false;
+        if (left > 12.0)
+            SDL_Delay((Uint32)(left - 11.0));
+        else
+            sched_yield();
+    }
 }
 
 /* --- audio ---------------------------------------------------------------- */
