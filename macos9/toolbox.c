@@ -41,9 +41,13 @@
 
 static int toolbox_ready;
 static int quit_requested;
-static MenuHandle apple_menu, file_menu;
+static short mbar_height = -1; /* the menu bar's, before ZSNES hides it */
+static MenuHandle apple_menu, file_menu, video_menu;
 
-enum { MENU_APPLE = 128, MENU_FILE = 129 };
+enum { MENU_APPLE = 128, MENU_FILE = 129, MENU_VIDEO = 130 };
+
+extern uint8_t FPSOn;     /* video/procvid.c */
+extern uint8_t frameskip; /* 0 = automatic; the counter needs it */
 
 static pascal OSErr ae_quit(AppleEvent const* const e, AppleEvent* const reply, long const refcon)
 {
@@ -117,6 +121,7 @@ void macos9_init(void)
     InitDialogs(NULL);
     InitCursor();
     FlushEvents(everyEvent, 0);
+    mbar_height = GetMBarHeight();
 
     AEInstallEventHandler(kCoreEventClass, kAEQuitApplication, NewAEEventHandlerUPP(ae_quit), 0, false);
     AEInstallEventHandler(kCoreEventClass, kAEOpenDocuments, NewAEEventHandlerUPP(ae_open), 0, false);
@@ -134,6 +139,11 @@ void macos9_init(void)
     pstr(s, "Quit/Q");
     AppendMenu(file_menu, s);
     InsertMenu(file_menu, 0);
+    pstr(s, "Video");
+    video_menu = NewMenu(MENU_VIDEO, s);
+    pstr(s, "Show FPS/F");
+    AppendMenu(video_menu, s);
+    InsertMenu(video_menu, 0);
     DrawMenuBar();
 }
 
@@ -296,10 +306,32 @@ static void clip(SDL_Surface const* const src, SDL_Rect const* const sr, SDL_Sur
     b->h = dr ? dr->h : dst->h;
 }
 
+struct SDL_Window {
+    WindowPtr win;
+    GWorldPtr gw;
+    int gw_depth; /* 16 or 32, the screen's when it is one of those */
+    int scale;    /* 2 doubles the picture on its way into the GWorld */
+    int w, h;     /* the picture the frontend draws */
+    int fullscreen, resizable, opengl;
+    Rect pic;     /* where the picture lands in the window */
+    SDL_Surface surface; /* RGB565, what the frontend draws into */
+    SDL_Surface const* pending; /* a frame blitted whole, converted at update */
+};
+
+static struct SDL_Window the_window;
+
 bool zs3_BlitSurface(SDL_Surface* const src, SDL_Rect const* const sr, SDL_Surface* const dst, SDL_Rect const* const dr)
 {
     SDL_Rect a, b;
     int y, w, h;
+
+    /* A whole frame onto the window's surface - every frame of the software
+       path - is not copied: the update converts it into the GWorld straight
+       from where it is. */
+    if (dst == &the_window.surface && !sr && !dr && src->w == dst->w && src->h == dst->h) {
+        the_window.pending = src;
+        return true;
+    }
 
     clip(src, sr, dst, dr, &a, &b);
     w = a.w;
@@ -386,53 +418,171 @@ bool zs3_SaveBMP(SDL_Surface* const s, char const* const file)
 
 static int focused = 1;
 
-/* --- the window ----------------------------------------------------------- */
+/* --- DrawSprocket: a lower screen resolution for full screen -------------- */
 
-struct SDL_Window {
-    WindowPtr win;
-    GWorldPtr gw;
-    int w, h;
-    int fullscreen;
-    SDL_Surface surface; /* RGB565, what the frontend draws into */
+/* Full screen at the desktop's 1024x768 or more made every frame a
+   screen-sized copy. DrawSprocket switches the display to the closest mode
+   that holds the picture - 640x480 for the SNES's own modes - and back. It is
+   imported weakly: without the DrawSprocket extension full screen covers the
+   desktop at its own resolution instead. Layout from DrawSprocket.h. */
+typedef struct OpaqueDSpContextReference* DSpContextReference;
+
+typedef struct DSpContextAttributes {
+    Fixed frequency;
+    UInt32 displayWidth;
+    UInt32 displayHeight;
+    UInt32 reserved1;
+    UInt32 reserved2;
+    UInt32 colorNeeds;
+    CTabHandle colorTable;
+    UInt32 contextOptions;
+    UInt32 backBufferDepthMask;
+    UInt32 displayDepthMask;
+    UInt32 backBufferBestDepth;
+    UInt32 displayBestDepth;
+    UInt32 pageCount;
+    char filler[3];
+    Boolean gameMustConfirmSwitch;
+    UInt32 reserved3[4];
+} DSpContextAttributes;
+
+enum {
+    kDSpContextState_Active = 0,
+    kDSpContextState_Paused = 1,
+    kDSpContextState_Inactive = 2,
+    kDSpColorNeeds_Require = 2,
+    kDSpDepthMask_16 = 1 << 4,
+    kDSpDepthMask_32 = 1 << 5
 };
 
-static struct SDL_Window the_window;
+OSStatus DSpStartup(void);
+OSStatus DSpShutdown(void);
+OSStatus DSpFindBestContext(DSpContextAttributes* desired, DSpContextReference* out);
+OSStatus DSpContext_Reserve(DSpContextReference ctx, DSpContextAttributes* desired);
+OSStatus DSpContext_Release(DSpContextReference ctx);
+OSStatus DSpContext_SetState(DSpContextReference ctx, UInt32 state);
+OSStatus DSpContext_GetAttributes(DSpContextReference ctx, DSpContextAttributes* attr);
+OSStatus DSpProcessEvent(EventRecord* ev, Boolean* processed);
+
+static int dsp_state = -1; /* -1 not tried, 0 unavailable, 1 started */
+static DSpContextReference dsp_ctx;
+static int dsp_w, dsp_h, dsp_paused;
+
+static int dsp_available(void)
+{
+    if (dsp_state < 0) {
+        void (*volatile p)(void) = (void (*)(void))DSpStartup;
+        void (*volatile q)(void) = (void (*)(void))DSpFindBestContext;
+
+        dsp_state = p && q && DSpStartup() == noErr;
+        if (!dsp_state)
+            printf("DrawSprocket: not installed; full screen keeps the desktop resolution\n");
+    }
+    return dsp_state;
+}
+
+static void screen_release(void)
+{
+    if (dsp_ctx) {
+        DSpContext_SetState(dsp_ctx, kDSpContextState_Inactive);
+        DSpContext_Release(dsp_ctx);
+        dsp_ctx = NULL;
+        dsp_w = dsp_h = 0;
+        dsp_paused = 0;
+    }
+}
+
+/* The display at the smallest mode of at least w x h, 16-bit for preference:
+   nothing ZSNES draws needs more, and it halves what each frame moves. */
+static void screen_reserve(int const w, int const h)
+{
+    DSpContextAttributes a;
+    DSpContextReference c;
+    int const want_w = w < 640 ? 640 : w, want_h = h < 480 ? 480 : h;
+
+    if (dsp_ctx && dsp_w == want_w && dsp_h == want_h)
+        return;
+    screen_release();
+    if (!dsp_available())
+        return;
+    memset(&a, 0, sizeof a);
+    a.displayWidth = (UInt32)want_w;
+    a.displayHeight = (UInt32)want_h;
+    a.colorNeeds = kDSpColorNeeds_Require;
+    a.backBufferDepthMask = kDSpDepthMask_16 | kDSpDepthMask_32;
+    a.displayDepthMask = kDSpDepthMask_16 | kDSpDepthMask_32;
+    a.backBufferBestDepth = 16;
+    a.displayBestDepth = 16;
+    a.pageCount = 1;
+    if (DSpFindBestContext(&a, &c) != noErr) {
+        printf("DrawSprocket: no display mode for %dx%d\n", want_w, want_h);
+        return;
+    }
+    if (DSpContext_Reserve(c, &a) != noErr)
+        return;
+    if (DSpContext_SetState(c, kDSpContextState_Active) != noErr) {
+        DSpContext_Release(c);
+        return;
+    }
+    dsp_ctx = c;
+    dsp_w = want_w;
+    dsp_h = want_h;
+    {
+        Rect const r = (**GetMainDevice()).gdRect;
+        printf("Full screen: display at %dx%d\n", r.right - r.left, r.bottom - r.top);
+    }
+}
+
+static void screen_pause(int const pause)
+{
+    if (dsp_ctx && pause != dsp_paused) {
+        DSpContext_SetState(dsp_ctx, pause ? kDSpContextState_Paused : kDSpContextState_Active);
+        dsp_paused = pause;
+    }
+}
+
+/* --- the window ----------------------------------------------------------- */
+
+
 static int window_open;
 static int menubar_hidden;
 
 /* The classic way to take the whole screen: a menu bar zero pixels high,
-   and its strip added to the desktop region so a window may draw there. */
-static short saved_mbar_height;
-static RgnHandle saved_gray;
+   and its strip added to the desktop region so a window may draw there.
+   Showing it again takes the strip back out of whatever the desktop region
+   is by then - DrawSprocket may have changed the resolution meanwhile, so a
+   saved copy of the old region would be the wrong size. The height is the
+   one the system had when ZSNES started. */
+
+static void menubar_strip(RgnHandle const rgn)
+{
+    Rect r = (**GetMainDevice()).gdRect;
+
+    r.bottom = (short)(r.top + mbar_height);
+    RectRgn(rgn, &r);
+}
 
 static void hide_menubar(int const hide)
 {
     RgnHandle const gray = LMGetGrayRgn();
+    RgnHandle strip;
 
+    if (mbar_height < 0)
+        mbar_height = GetMBarHeight();
     if (hide == menubar_hidden)
         return;
     menubar_hidden = hide;
+    strip = NewRgn();
+    menubar_strip(strip);
     if (hide) {
-        Rect r = (**GetMainDevice()).gdRect;
-        RgnHandle const strip = NewRgn();
-
-        saved_mbar_height = GetMBarHeight();
-        saved_gray = NewRgn();
-        CopyRgn(gray, saved_gray);
-        r.bottom = (short)(r.top + saved_mbar_height);
-        RectRgn(strip, &r);
         UnionRgn(gray, strip, gray);
-        DisposeRgn(strip);
         LMSetMBarHeight(0);
     } else {
-        LMSetMBarHeight(saved_mbar_height);
-        if (saved_gray) {
-            CopyRgn(saved_gray, gray);
-            DisposeRgn(saved_gray);
-            saved_gray = NULL;
-        }
+        DiffRgn(gray, strip, gray);
+        LMSetMBarHeight(mbar_height);
         DrawMenuBar();
     }
+    DisposeRgn(strip);
 }
 
 static void free_window(struct SDL_Window* const w)
@@ -447,33 +597,82 @@ static void free_window(struct SDL_Window* const w)
     }
     free(w->surface.pixels);
     w->surface.pixels = NULL;
+    w->pending = NULL;
 }
+
+static short port_w(WindowPtr const win) { return (short)(((GrafPtr)win)->portRect.right - ((GrafPtr)win)->portRect.left); }
+static short port_h(WindowPtr const win) { return (short)(((GrafPtr)win)->portRect.bottom - ((GrafPtr)win)->portRect.top); }
+
+/* Where the picture goes: the whole window, or centred in a full-screen one. */
+static void place_picture(struct SDL_Window* const w)
+{
+    short const pw = port_w(w->win), ph = port_h(w->win);
+    short const iw = (short)(w->opengl ? pw : w->w * w->scale);
+    short const ih = (short)(w->opengl ? ph : w->h * w->scale);
+
+    SetRect(&w->pic, 0, 0, iw, ih);
+    if (w->fullscreen && !w->opengl)
+        OffsetRect(&w->pic, (short)((pw - iw) / 2), (short)((ph - ih) / 2));
+}
+
+static int screen_depth(void)
+{
+    PixMapHandle const pm = (**GetMainDevice()).gdPMap;
+
+    return (**pm).pixelSize;
+}
+
+static void* gl_port_ctx; /* the context gl_start made, re-pointed at a new window */
 
 static bool make_window(struct SDL_Window* const w)
 {
-    Rect const screen = (**GetMainDevice()).gdRect;
-    Rect r, g;
+    Rect screen;
+    Rect r;
     Str255 title;
-    QDErr err;
 
     free_window(w);
-    w->surface.w = w->w;
-    w->surface.h = w->h;
-    w->surface.pitch = (w->w * 2 + 15) & ~15;
-    w->surface.format = SDL_PIXELFORMAT_RGB565;
-    if (!(w->surface.pixels = calloc((size_t)w->surface.pitch, (size_t)w->h))) {
-        set_error("Out of memory for the screen: give ZSNES more memory in Get Info");
-        return false;
+    /* The menu bar goes back before the resolution does, and comes away
+       after it changes, so its strip is always the current screen's. */
+    if (w->fullscreen) {
+        screen_reserve(w->w, w->h);
+    } else {
+        hide_menubar(0);
+        screen_release();
     }
-    SetRect(&g, 0, 0, (short)w->w, (short)w->h);
-    err = NewGWorld(&w->gw, 16, &g, NULL, NULL, 0);
-    if (err != noErr || !w->gw)
-        err = NewGWorld(&w->gw, 16, &g, NULL, NULL, useTempMem);
-    if (err != noErr || !w->gw) {
-        w->gw = NULL;
-        set_error("Could not make an offscreen GWorld");
-        return false;
+    screen = (**GetMainDevice()).gdRect;
+
+    if (!w->opengl) {
+        int const sw = screen.right - screen.left, sh = screen.bottom - screen.top;
+        Rect g;
+        QDErr err;
+
+        w->surface.w = w->w;
+        w->surface.h = w->h;
+        w->surface.pitch = (w->w * 2 + 15) & ~15;
+        w->surface.format = SDL_PIXELFORMAT_RGB565;
+        if (!(w->surface.pixels = calloc((size_t)w->surface.pitch, (size_t)w->h))) {
+            set_error("Out of memory for the screen: give ZSNES more memory in Get Info");
+            return false;
+        }
+        /* In full screen a picture that fits twice over is doubled while it
+           is converted - one pass, rather than the screen showing a postage
+           stamp or QuickDraw stretching it. */
+        w->scale = w->fullscreen && sw >= 2 * w->w && sh >= 2 * w->h ? 2 : 1;
+        /* The GWorld at the screen's depth makes the copy to the screen a
+           straight one; QuickDraw converting 16 to 32 bits was most of it. */
+        w->gw_depth = screen_depth() == 32 ? 32 : 16;
+        SetRect(&g, 0, 0, (short)(w->w * w->scale), (short)(w->h * w->scale));
+        err = NewGWorld(&w->gw, (short)w->gw_depth, &g, NULL, NULL, 0);
+        if (err != noErr || !w->gw)
+            err = NewGWorld(&w->gw, (short)w->gw_depth, &g, NULL, NULL, useTempMem);
+        if (err != noErr || !w->gw) {
+            w->gw = NULL;
+            set_error("Could not make an offscreen GWorld: give ZSNES more memory in Get Info");
+            return false;
+        }
+        LockPixels(GetGWorldPixMap(w->gw)); /* for good: it is drawn every frame */
     }
+
     pstr(title, "ZSNES");
     if (w->fullscreen) {
         hide_menubar(1);
@@ -488,7 +687,8 @@ static bool make_window(struct SDL_Window* const w)
         if (top < screen.top + mbar + 20)
             top = (short)(screen.top + mbar + 20);
         SetRect(&r, left, top, (short)(left + w->w), (short)(top + w->h));
-        w->win = NewCWindow(NULL, &r, title, true, noGrowDocProc, (WindowPtr)-1L, true, 0);
+        w->win = NewCWindow(NULL, &r, title, true, w->resizable ? zoomDocProc : noGrowDocProc,
+            (WindowPtr)-1L, true, 0);
     }
     if (!w->win) {
         set_error("Could not open a window");
@@ -500,6 +700,9 @@ static bool make_window(struct SDL_Window* const w)
         RGBBackColor(&black);
         EraseRect(&((GrafPtr)w->win)->portRect);
     }
+    place_picture(w);
+    if (w->opengl && gl_port_ctx)
+        macos9_gl_attach(w->win);
     return true;
 }
 
@@ -509,9 +712,15 @@ SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, 
 
     (void)title;
     macos9_init();
+    if ((flags & SDL_WINDOW_OPENGL) && !macos9_gl_available()) {
+        set_error("OpenGL is not installed");
+        return NULL;
+    }
     win->w = w;
     win->h = h;
     win->fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+    win->resizable = (flags & SDL_WINDOW_RESIZABLE) != 0;
+    win->opengl = (flags & SDL_WINDOW_OPENGL) != 0;
     if (!make_window(win)) {
         free_window(win);
         return NULL;
@@ -520,6 +729,9 @@ SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, 
     return win;
 }
 
+/* The display mode stays: the frontend closes and opens its window on every
+   mode change, and the next one is most often full screen again. A windowed
+   one, or quitting, puts the desktop back. */
 void zs3_DestroyWindow(SDL_Window* const win)
 {
     if (win && window_open) {
@@ -537,6 +749,12 @@ bool zs3_SetWindowSize(SDL_Window* const win, int const w, int const h)
         return true;
     win->w = w;
     win->h = h;
+    if (win->opengl && !win->fullscreen && win->win) {
+        SizeWindow(win->win, (short)w, (short)h, true);
+        place_picture(win);
+        macos9_gl_update();
+        return true;
+    }
     return make_window(win);
 }
 
@@ -559,12 +777,16 @@ SDL_WindowFlags zs3_GetWindowFlags(SDL_Window* const win)
     return win && win->fullscreen ? SDL_WINDOW_FULLSCREEN : 0;
 }
 
+/* OpenGL draws to the whole window - in full screen, the whole screen - and
+   sets its viewport from this; the software path wants its picture's size. */
 bool zs3_GetWindowSizeInPixels(SDL_Window* const win, int* const w, int* const h)
 {
+    int const gl = win && win->win && win->opengl;
+
     if (w)
-        *w = win ? win->w : 0;
+        *w = !win ? 0 : gl ? port_w(win->win) : win->w;
     if (h)
-        *h = win ? win->h : 0;
+        *h = !win ? 0 : gl ? port_h(win->win) : win->h;
     return win != NULL;
 }
 
@@ -573,63 +795,161 @@ SDL_Surface* zs3_GetWindowSurface(SDL_Window* const win)
     return win && win->surface.pixels ? &win->surface : NULL;
 }
 
-/* The GWorld to the window: centred in a full-screen one. */
+/* The GWorld to the window. */
 static void present(struct SDL_Window* const win)
 {
     PixMapHandle const pm = GetGWorldPixMap(win->gw);
     GrafPtr const port = (GrafPtr)win->win;
-    Rect src, dst;
+    Rect src;
     RGBColor const black = { 0, 0, 0 }, white = { 0xFFFF, 0xFFFF, 0xFFFF };
-    short const pw = (short)(port->portRect.right - port->portRect.left);
-    short const ph = (short)(port->portRect.bottom - port->portRect.top);
 
-    SetRect(&src, 0, 0, (short)win->w, (short)win->h);
-    dst = src;
-    if (win->fullscreen)
-        OffsetRect(&dst, (short)((pw - win->w) / 2), (short)((ph - win->h) / 2));
+    SetRect(&src, 0, 0, (short)(win->w * win->scale), (short)(win->h * win->scale));
     SetPort(port);
     RGBForeColor(&black);
     RGBBackColor(&white);
-    if (LockPixels(pm)) {
-        CopyBits((BitMap*)*pm, &port->portBits, &src, &dst, srcCopy, NULL);
-        UnlockPixels(pm);
-    }
+    CopyBits((BitMap*)*pm, &port->portBits, &src, &win->pic, srcCopy, NULL);
     RGBBackColor(&black);
+}
+
+/* RGB565 to the screen's format: xRGB1555 by shifts, two pixels at a time;
+   xRGB8888 through a table. */
+static Uint32* lut32;
+
+static int make_lut32(void)
+{
+    unsigned p;
+
+    if (lut32)
+        return 1;
+    if (!(lut32 = (Uint32*)malloc(65536 * sizeof *lut32)))
+        return 0;
+    for (p = 0; p < 65536; p++) {
+        unsigned const r = p >> 11, g = p >> 5 & 63, b = p & 31;
+        lut32[p] = (Uint32)((r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2));
+    }
+    return 1;
+}
+
+static void convert_row16(Uint16 const* const in, Uint8* const out, int const w, int const scale)
+{
+    int x;
+
+    if (scale == 1) {
+        Uint32 const* const i2 = (Uint32 const*)in;
+        Uint32* const o2 = (Uint32*)out;
+        int const n = w >> 1;
+
+        for (x = 0; x < n; x++) {
+            Uint32 const v = i2[x];
+            o2[x] = ((v >> 1) & 0x7FE07FE0u) | (v & 0x001F001Fu);
+        }
+        if (w & 1)
+            ((Uint16*)out)[w - 1] = (Uint16)(((in[w - 1] >> 1) & 0x7FE0u) | (in[w - 1] & 0x1Fu));
+    } else {
+        Uint32* const o2 = (Uint32*)out;
+
+        for (x = 0; x < w; x++) {
+            Uint32 const v = (Uint32)(((in[x] >> 1) & 0x7FE0u) | (in[x] & 0x1Fu));
+            o2[x] = v << 16 | v;
+        }
+    }
+}
+
+static void convert_row32(Uint16 const* const in, Uint8* const out, int const w, int const scale)
+{
+    Uint32* const o = (Uint32*)out;
+    int x;
+
+    if (scale == 1) {
+        for (x = 0; x < w; x++)
+            o[x] = lut32[in[x]];
+    } else {
+        for (x = 0; x < w; x++) {
+            Uint32 const v = lut32[in[x]];
+            o[2 * x] = v;
+            o[2 * x + 1] = v;
+        }
+    }
 }
 
 bool zs3_UpdateWindowSurface(SDL_Window* const win)
 {
     PixMapHandle pm;
+    SDL_Surface const* src;
     Uint8* base;
     long rb;
-    int x, y;
+    int y, s;
 
     if (!win || !win->win || !win->gw)
         return false;
-    pm = GetGWorldPixMap(win->gw);
-    if (!LockPixels(pm))
+    if (win->gw_depth == 32 && !make_lut32())
         return false;
+    src = win->pending ? win->pending : &win->surface;
+    win->pending = NULL;
+    pm = GetGWorldPixMap(win->gw);
     base = (Uint8*)GetPixBaseAddr(pm);
     rb = (**pm).rowBytes & 0x3FFF;
-    /* RGB565 to xRGB1555, two pixels at a time. */
-    for (y = 0; y < win->h; y++) {
-        Uint32 const* const in = (Uint32 const*)((Uint8 const*)win->surface.pixels + (size_t)y * win->surface.pitch);
-        Uint32* const out = (Uint32*)(base + (size_t)y * rb);
-        int const n = win->w >> 1;
+    s = win->scale;
+    for (y = 0; y < win->h && y < src->h; y++) {
+        Uint16 const* const in = (Uint16 const*)((Uint8 const*)src->pixels + (size_t)y * src->pitch);
+        Uint8* const out = base + (size_t)y * s * rb;
+        int const w = win->w < src->w ? win->w : src->w;
 
-        for (x = 0; x < n; x++) {
-            Uint32 const v = in[x];
-            out[x] = ((v >> 1) & 0x7FE07FE0u) | (v & 0x001F001Fu);
-        }
-        if (win->w & 1) {
-            Uint16 const v = ((Uint16 const*)in)[win->w - 1];
-            ((Uint16*)out)[win->w - 1] = (Uint16)(((v >> 1) & 0x7FE0u) | (v & 0x1Fu));
-        }
+        if (win->gw_depth == 32)
+            convert_row32(in, out, w, s);
+        else
+            convert_row16(in, out, w, s);
+        if (s == 2)
+            BlockMoveData(out, out + rb, (long)w * 2 * (win->gw_depth / 8));
     }
-    UnlockPixels(pm);
     present(win);
     return true;
 }
+
+/* --- OpenGL --------------------------------------------------------------- */
+
+static int gl_vsync;
+
+bool zs3_GL_SetAttribute(SDL_GLAttr const attr, int const value) { return true; }
+
+bool zs3_GL_SetSwapInterval(int const interval)
+{
+    gl_vsync = interval != 0;
+    macos9_gl_set_vsync(gl_vsync);
+    return true;
+}
+
+SDL_GLContext zs3_GL_CreateContext(SDL_Window* const win)
+{
+    if (!win || !win->win || !win->opengl)
+        return NULL;
+    gl_port_ctx = macos9_gl_create(win->win, gl_vsync);
+    if (!gl_port_ctx)
+        set_error("No accelerated OpenGL for this screen");
+    return gl_port_ctx;
+}
+
+bool zs3_GL_DestroyContext(SDL_GLContext const ctx)
+{
+    if (ctx && ctx == gl_port_ctx) {
+        macos9_gl_destroy();
+        gl_port_ctx = NULL;
+    }
+    return true;
+}
+
+bool zs3_GL_SwapWindow(SDL_Window* const win)
+{
+    macos9_gl_swap();
+    return true;
+}
+
+/* The frontend's SDL_Renderer path is not built here; its OpenGL modes use
+   the immediate-mode renderer (unix/gl_draw.c) instead. */
+int sr_start(int width, int height, int req_depth, int fs) { return 0; }
+void sr_end(void) { }
+void sr_clearwin(void) { }
+void sr_drawwin(void) { }
 
 bool zs3_StartTextInput(SDL_Window* const win) { return true; }
 
@@ -871,12 +1191,41 @@ static void do_menu(long const choice)
         }
     } else if (menu == MENU_FILE && item == 1) {
         quit_requested = 1;
+    } else if (menu == MENU_VIDEO && item == 1) {
+        /* ZSNES counts frames only while it picks the frameskip itself. */
+        frameskip = 0;
+        FPSOn ^= 1;
     }
     HiliteMenu(0);
 }
 
+/* The window's new size, after a grow or a zoom, to the frontend: in the
+   resizable (OpenGL) modes it picks the picture size up from this. */
+static void window_resized(void)
+{
+    struct SDL_Window* const w = &the_window;
+    SDL_Event e;
+
+    w->w = port_w(w->win);
+    w->h = port_h(w->win);
+    place_picture(w);
+    macos9_gl_update();
+    memset(&e, 0, sizeof e);
+    e.type = SDL_EVENT_WINDOW_RESIZED;
+    e.window.data1 = w->w;
+    e.window.data2 = w->h;
+    push(&e);
+}
+
 static void handle(EventRecord* const ev)
 {
+    if (dsp_ctx) {
+        Boolean done = false;
+
+        DSpProcessEvent(ev, &done);
+        if (done)
+            return;
+    }
     switch (ev->what) {
     case mouseDown: {
         WindowPtr w;
@@ -885,6 +1234,7 @@ static void handle(EventRecord* const ev)
         switch (part) {
         case inMenuBar:
             show_cursor();
+            CheckItem(video_menu, 1, FPSOn != 0);
             do_menu(MenuSelect(ev->where));
             break;
         case inSysWindow:
@@ -893,8 +1243,30 @@ static void handle(EventRecord* const ev)
         case inDrag: {
             Rect bounds = qd.screenBits.bounds;
             DragWindow(w, ev->where, &bounds);
+            macos9_gl_update();
             break;
         }
+        case inGrow:
+            if (w == the_window.win && the_window.resizable) {
+                Rect lim;
+                long sz;
+
+                SetRect(&lim, 128, 112, 4096, 4096);
+                sz = GrowWindow(w, ev->where, &lim);
+                if (sz) {
+                    SizeWindow(w, (short)(sz & 0xFFFF), (short)(sz >> 16 & 0xFFFF), true);
+                    window_resized();
+                }
+            }
+            break;
+        case inZoomIn:
+        case inZoomOut:
+            if (w == the_window.win && TrackBox(w, ev->where, part)) {
+                SetPort((GrafPtr)w);
+                ZoomWindow(w, part, true);
+                window_resized();
+            }
+            break;
         case inGoAway:
             if (TrackGoAway(w, ev->where))
                 quit_requested = 1;
@@ -934,7 +1306,10 @@ static void handle(EventRecord* const ev)
 
         if (ev->modifiers & cmdKey) {
             if (ev->what == keyDown) {
-                long const choice = MenuKey(c);
+                long choice;
+
+                CheckItem(video_menu, 1, FPSOn != 0);
+                choice = MenuKey(c);
                 if (choice >> 16)
                     do_menu(choice);
             }
@@ -966,6 +1341,7 @@ static void handle(EventRecord* const ev)
             int const resume = (ev->message & resumeFlag) != 0;
 
             focused = resume;
+            screen_pause(!resume); /* the desktop's resolution while away */
             push_type(resume ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST);
             if (!resume) {
                 show_cursor();
@@ -991,8 +1367,20 @@ void zs3_PumpEvents(void)
     /* A handful per call: the frontend pumps every frame. Sleep 0 - the
        emulator wants the processor - but other applications still get their
        turn inside WaitNextEvent. */
-    for (n = 0; n < 8 && WaitNextEvent(everyEvent, &ev, 0, NULL); n++)
-        handle(&ev);
+    /* WaitNextEvent is where every other application, and the system, get
+       their time, and calling it on each of the frontend's many polls a frame
+       cost frames. Twenty times a second is plenty for clicks and menus: the
+       keyboard is read directly, every poll. */
+    {
+        static uint64_t last;
+        uint64_t const now = macos9_microseconds();
+
+        if (now - last >= 50000u || quit_requested) {
+            last = now;
+            for (n = 0; n < 8 && WaitNextEvent(everyEvent, &ev, 0, NULL); n++)
+                handle(&ev);
+        }
+    }
     poll_keys();
 
     if (the_window.win && focused) {
@@ -1003,6 +1391,11 @@ void zs3_PumpEvents(void)
         SetPort((GrafPtr)the_window.win);
         GetMouse(&p);
         update_cursor(p, PtInRect(p, &((GrafPtr)the_window.win)->portRect) && FrontWindow() == the_window.win);
+        /* Into the picture's own pixels: it may sit centred and doubled. */
+        if (!the_window.opengl) {
+            p.h = (short)((p.h - the_window.pic.left) / the_window.scale);
+            p.v = (short)((p.v - the_window.pic.top) / the_window.scale);
+        }
         if (!have_last || p.h != last.h || p.v != last.v) {
             SDL_Event e;
 
@@ -1293,8 +1686,18 @@ void macos9_shutdown(void)
     done = 1;
     if (the_stream)
         zs3_DestroyAudioStream(the_stream);
+    if (gl_port_ctx) {
+        macos9_gl_destroy();
+        gl_port_ctx = NULL;
+    }
     if (window_open)
         zs3_DestroyWindow(&the_window);
+    hide_menubar(0);
+    screen_release(); /* the desktop's resolution back */
+    if (dsp_state == 1) {
+        DSpShutdown();
+        dsp_state = 0;
+    }
     hide_menubar(0);
     show_cursor();
     macos9_close_log();

@@ -41,7 +41,8 @@ enum {
     resumeFlag = 1,
     kAlertNoteAlert = 1,
     kAlertStdAlertOKButton = 1,
-    kWindowDefaultPosition = 0
+    kWindowDefaultPosition = 0,
+    zoomDocProc = 8
 };
 
 pascal void Microseconds(UnsignedWide* micro);

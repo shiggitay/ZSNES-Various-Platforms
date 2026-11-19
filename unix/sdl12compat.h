@@ -185,6 +185,27 @@ typedef struct SDL_Renderer SDL_Renderer;
 
 #endif
 
+/* OpenGL: not with SDL 1.2; the Mac OS 9 build has it through AGL. SDL 1.2
+   has GL names of its own, so sdl12compat.c does not see these. */
+#ifndef SDL12COMPAT_IMPL
+typedef enum SDL_GLAttr {
+    SDL_GL_DOUBLEBUFFER = 5,
+    SDL_GL_ACCELERATED_VISUAL = 15
+} SDL_GLAttr;
+
+#define SDL_GL_SetAttribute zs3_GL_SetAttribute
+#define SDL_GL_SetSwapInterval zs3_GL_SetSwapInterval
+#define SDL_GL_CreateContext zs3_GL_CreateContext
+#define SDL_GL_DestroyContext zs3_GL_DestroyContext
+#define SDL_GL_SwapWindow zs3_GL_SwapWindow
+
+bool zs3_GL_SetAttribute(SDL_GLAttr attr, int value);
+bool zs3_GL_SetSwapInterval(int interval);
+SDL_GLContext zs3_GL_CreateContext(SDL_Window* win);
+bool zs3_GL_DestroyContext(SDL_GLContext ctx);
+bool zs3_GL_SwapWindow(SDL_Window* win);
+#endif
+
 SDL_Window* zs3_CreateWindow(char const* title, int w, int h, SDL_WindowFlags flags);
 void zs3_DestroyWindow(SDL_Window* win);
 bool zs3_SetWindowSize(SDL_Window* win, int w, int h);

@@ -29,10 +29,12 @@ cd "$ROOT"
 SRCS=$(make -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' zsnes-print-srcs \
     ARCH=LINUX CPU=ppc WITH_SDL12=yes WITH_SDL=yes WITH_PNG= WITH_OPENGL= BUILD_DIR="$OUT/unused" 2>/dev/null |
     tr ' ' '\n' | grep -v -e '^unix/sdl12compat.c$' -e '^unix/net_transport.c$' -e '^unix/safelib.c$' -e '^mmlib/linux.c$' | tr '\n' ' ')
-SRCS="$SRCS macos9/toolbox.c macos9/posix.c macos9/net_stub.c macos9/safelib.c"
+SRCS="$SRCS unix/gl_draw.c macos9/toolbox.c macos9/gl.c macos9/posix.c macos9/net_stub.c macos9/safelib.c"
 
-DEFS="-DZSNES_MACOS9 -D__UNIXSDL__ -DZSNES_SDL12 -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
-CFLAGS="-std=gnu11 -O2 -fno-strict-aliasing -mminimal-toc \
+DEFS="-DZSNES_MACOS9 -D__UNIXSDL__ -DZSNES_SDL12 -D__OPENGL__ -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
+# Scheduled for the G3 and G4 (-mtune changes no instructions: it still
+# runs on a 601 or a 604).
+CFLAGS="-std=gnu11 -O2 -mtune=750 -fno-strict-aliasing -mminimal-toc \
  -Wall -Wno-unused-parameter -Wno-multichar -Wno-unused-but-set-variable -Wno-incompatible-pointer-types -Wno-format -Wno-char-subscripts -Werror=implicit-function-declaration \
  -I$ROOT/macos9/include -I$OUT -include $ROOT/macos9/compat.h ${MACOS9_CFLAGS:-}"
 
@@ -78,10 +80,22 @@ make -s -k -j"$JOBS" -f "$OUT/objs.mk" all
 
 OBJS=
 for s in $SRCS; do OBJS="$OBJS $OUT/obj/${s%.c}.o"; done
+# OpenGL and DrawSprocket are optional extensions on Mac OS 8 and 9, so both
+# are imported weakly: the application launches without them and checks for
+# them before use. OpenGL's import library is made here (Retro68 has none);
+# DrawSprocket's is Retro68's, under a member name MakePEF reads as weak.
+PATH=$RETRO68/bin:$PATH sh "$ROOT/macos9/implib/mkimplib.sh" OpenGLLibrary \
+    "$ROOT/macos9/implib/OpenGLLibrary.txt" "$OUT/libOpenGLWeak.a"
+DSP_TMP=$(mktemp -d)
+(cd "$DSP_TMP" && powerpc-apple-macos-ar x "$RETRO68/powerpc-apple-macos/lib/libDrawSprocketLib.a" DrawSprocketLib.o &&
+    mv DrawSprocketLib.o DrawSprocketLib__weak.o && rm -f "$OUT/libDrawSprocketWeak.a" &&
+    powerpc-apple-macos-ar cq "$OUT/libDrawSprocketWeak.a" DrawSprocketLib__weak.o)
+rm -rf "$DSP_TMP"
+
 echo "LINK ZSNES.xcoff"
 # shellcheck disable=SC2086
 $CC -o "$OUT/ZSNES.xcoff" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" \
-    -lm -lAppearanceLib
+    -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak -lDrawSprocketWeak
 
 echo "PEF ZSNES.pef"
 MakePEF "$OUT/ZSNES.xcoff" -o "$OUT/ZSNES.pef"

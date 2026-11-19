@@ -239,8 +239,12 @@ static int UseLegacyGL(void)
     static int cached = -1;
 
     if (cached < 0) {
+#ifdef ZSNES_MACOS9
+        cached = 1; /* no SDL_Renderer there: the OpenGL modes are AGL's */
+#else
         char const* e = getenv("ZSNES_LEGACY_GL");
         cached = (e && *e == '1') ? 1 : 0;
+#endif
     }
     return cached;
 }
@@ -1917,6 +1921,15 @@ void initwinvideo(void)
 
         FullScreen = GUIWFVID[cvidmode];
 #ifdef __OPENGL__
+#ifdef ZSNES_MACOS9
+        /* A Mac without OpenGL: its modes fall back as in a build without. */
+        {
+            int macos9_gl_available(void);
+            if (CheckOGLMode() && !macos9_gl_available()) {
+                cvidmode = 2;
+            }
+        }
+#endif
         UseOpenGL = 0;
         if (CheckOGLMode()) {
             UseOpenGL = 1;

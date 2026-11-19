@@ -18,6 +18,20 @@ Default keys for player 1: the arrow keys, Return (Start), Right Shift
 (Select), Z (B), X (A), A (Y), S (X), D (L) and C (R). Change them in
 Config > Input. A Control-click is a right click.
 
+VIDEO MODES AND SPEED
+Pick a mode in Config > Video. Modes with an O use OpenGL: the graphics card
+scales the picture, which takes most of the drawing work off the processor.
+They need Apple's OpenGL extensions and an accelerated card (Rage 128,
+Radeon, GeForce); without them those modes fall back to 512x448 window.
+- Fastest full screen: 640x480 ODS F (OpenGL), or 256x224 R F without
+  OpenGL, which ZSNES doubles to fill a 640x480 screen.
+- Full screen switches the monitor to the nearest resolution (640x480 for
+  the small modes) with DrawSprocket, and back when you leave. Without the
+  DrawSprocket extension it keeps your desktop's resolution, which is slower.
+- VARIABLE (OpenGL) windows can be resized with the grow box and zoomed.
+- Video > Show FPS (Command-F) toggles the frame counter.
+- Thousands of colors (16-bit) is faster than Millions.
+
 NAMES
 Mac OS 8 and 9 allow 31 characters in a file name. A ROM with a longer name
 (from a PC or a Mac OS X disk) should be renamed first; the battery save
@@ -27,7 +41,7 @@ WHAT IS NOT THERE YET
 - Joysticks and gamepads (InputSprocket support would be the way).
 - Netplay (it needs Open Transport).
 - Movie recording to video files and PNG screenshots (screenshots are BMP).
-- Smooth (bilinear) scaling: the picture is scaled by whole pixels.
+- Smooth (bilinear) scaling outside the OpenGL modes.
 
 A log of what ZSNES printed is in "ZSNES Log.txt" next to the application;
 include it with any problem report.
