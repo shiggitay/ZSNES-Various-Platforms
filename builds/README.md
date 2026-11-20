@@ -4,12 +4,13 @@ Ready-to-run builds of this repository. No ROMs are included.
 
 | Package | For | Contents |
 |---|---|---|
-| [zsnes-ppc-macos9.sit.hqx](zsnes-ppc-macos9.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (included with Mac OS 8 and 9) gives you a "ZSNES PPC" folder with the application, its read me and the project README |
-| [zsnes-ppc32-ydl.tar.gz](zsnes-ppc32-ydl.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt`, `README.md` (the project README) |
+| [zsnes-ppc-macos9.sit.hqx](zsnes-ppc-macos9.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (included with Mac OS 8 and 9) gives you a "ZSNES PPC" folder with the application and its read me |
+| [zsnes-ppc32-ydl.tar.gz](zsnes-ppc32-ydl.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
 
 The [Release](../../actions/workflows/release.yml) workflow (Actions tab, Run workflow) publishes these, with [RELEASE_NOTES.md](RELEASE_NOTES.md), as a GitHub release.
 
-Each build has a read me with requirements, keys and video modes.
+Each build has one read me, for its own system: requirements, keys, video
+modes, troubleshooting, credits and license.
 
 **Mac OS 9:** needs 40 MB of free memory; drop a ROM on the icon. Video menu:
 Show FPS (Command-F), Full Screen (Shift-Command-F or Command-Return), Sync to
@@ -26,8 +27,8 @@ kernel 2.4.22.
 SHA-256:
 
 ```
-7fe5100363052090b96a4710f06390dfc994774261cb22a28c109850b9a939e2  zsnes-ppc-macos9.sit.hqx
-34fdb0f0f6b8e35878125eeffeccf7002dcb8c506eed96b79287b07ad08e4159  zsnes-ppc32-ydl.tar.gz
+3e8b92c24aa8fbcfee53489e587492f6a90275b758150d873cdde9450d6a136e  zsnes-ppc-macos9.sit.hqx
+c5c2c10176e6a01c8264636b7068be4f81e8d3a5b28215b2a79da22562da5773  zsnes-ppc32-ydl.tar.gz
 ```
 
 Built from b420eac with `tools/build-macos9.sh` and `tools/build-ydl.sh`.

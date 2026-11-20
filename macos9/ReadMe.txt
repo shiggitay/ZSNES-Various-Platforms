@@ -1,4 +1,4 @@
-ZSNES 2 for Mac OS 8 and 9 (PowerPC)
+ZSNES PPC 1.0 for Mac OS 8 and 9 (PowerPC)
 
 WHAT YOU NEED
 - A PowerPC Mac (G3 or G4 recommended) with Mac OS 8.6 to 9.2.2. It runs
@@ -54,5 +54,24 @@ WHAT IS NOT THERE YET
 
 A log of what ZSNES printed is in "ZSNES Log.txt" next to the application;
 include it with any problem report.
+
+ABOUT ZSNES PPC
+ZSNES PPC is ZSNES for PowerPC: a fork of ZSNES 2, Alexander F. Rodseth's C
+port of ZSNES (github.com/xyproto/zsnes), as a native application for Mac OS
+8.6 to 9.2.2. The emulator core gives the same machine state, picture and
+sound as on an x86 PC, frame for frame, and its sprite, Mode 7 and
+background drawing were made faster for older machines. No ROMs are
+included.
+
+Source code, other builds and problem reports:
+    https://github.com/shiggitay/zsnes-ppc
+
+CREDITS
+ZSNES by zsKnight, _Demo_, pagefault, Nach, grinvader, Deathlike2, Jonas
+Quinn, blargg, Pharos, teuf, relnev, prometheus, theoddone33, EvilTypeGuy,
+stainless, aaronl, MKendora, kode54, zinx, amit, hpsolo, Kreed, Neviksti,
+ipher, StatMat, Diablo-D3, Wilbern Cobb, Thorsten "mirabile" Glaser and
+Mitchell "The Khan Artist/Noxious Ninja" Mebane. The C port by Christoph
+Mallon and Alexander F. Rodseth.
 
 ZSNES is free software under the GNU General Public License, version 2.
