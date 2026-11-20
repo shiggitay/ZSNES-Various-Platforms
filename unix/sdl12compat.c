@@ -308,16 +308,62 @@ struct SDL_Window {
 static struct SDL_Window the_window;
 static int window_open;
 
+/* The display's resolution as it stands. SDL 1.2.10 and later say; before
+   that (Yellow Dog Linux 3 has 1.2.5, whose SDL_VideoInfo is shorter) the
+   largest mode is taken, which X lists first and which is the desktop's as
+   a rule. */
+static int desktop_size(int* const w, int* const h)
+{
+    SDL_version const* const v = SDL_Linked_Version();
+    SDL_Rect** modes;
+
+    if (v && SDL_VERSIONNUM(v->major, v->minor, v->patch) >= SDL_VERSIONNUM(1, 2, 10)) {
+        SDL_VideoInfo const* const i = SDL_GetVideoInfo();
+
+        if (i && i->current_w > 0 && i->current_h > 0) {
+            *w = i->current_w;
+            *h = i->current_h;
+            return 1;
+        }
+    }
+    modes = SDL_ListModes(NULL, SDL_FULLSCREEN | SDL_OPENGL);
+    if (modes && modes != (SDL_Rect**)-1 && modes[0]) {
+        *w = modes[0]->w;
+        *h = modes[0]->h;
+        return 1;
+    }
+    return 0;
+}
+
+static ZEvent synth; /* a window event the shim makes up itself */
+static int has_synth;
+
 static bool set_mode(struct SDL_Window* const win)
 {
     SDL12_Surface* s;
+    int w = win->w, h = win->h;
 
     if (!SDL_WasInit(SDL_INIT_VIDEO) && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
         return false;
-    s = SDL_SetVideoMode(win->w, win->h, 0, win->flags);
+    /* Full screen in OpenGL at the desktop's own resolution: the graphics
+       card scales the picture to it, so nothing is gained by switching the
+       display, and on Yellow Dog Linux 3 (Radeon, XFree86 4.3, UseFBDev) the
+       switch left the screen black. */
+    if ((win->flags & SDL_OPENGL) && (win->flags & SDL_FULLSCREEN))
+        desktop_size(&w, &h);
+    s = SDL_SetVideoMode(w, h, 0, win->flags);
     if (!s)
         return false;
     wrap(s, &win->surface);
+    /* As SDL3 does once a full-screen window is up: the frontend sizes its
+       OpenGL viewport from this. */
+    if ((win->flags & SDL_OPENGL) && (win->flags & SDL_FULLSCREEN)) {
+        memset(&synth, 0, sizeof synth);
+        synth.type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+        synth.window.data1 = s->w;
+        synth.window.data2 = s->h;
+        has_synth = 1;
+    }
     return true;
 }
 
@@ -788,13 +834,24 @@ static int translate(SDL12_Event const* const in, ZEvent* const e)
         }
         return 1;
     }
-    case SDL_MOUSEMOTION:
+    case SDL_MOUSEMOTION: {
+        SDL12_Surface const* const sc = SDL_GetVideoSurface();
+        float sx = 1.0f, sy = 1.0f;
+
+        /* A full-screen OpenGL window is the desktop's size, not the mode's
+           the frontend asked for and scales the mouse from. */
+        if (window_open && sc && (the_window.flags & SDL_OPENGL) && (the_window.flags & SDL_FULLSCREEN)
+            && sc->w > 0 && sc->h > 0) {
+            sx = (float)the_window.w / (float)sc->w;
+            sy = (float)the_window.h / (float)sc->h;
+        }
         e->type = SDL_EVENT_MOUSE_MOTION;
-        e->motion.x = in->motion.x;
-        e->motion.y = in->motion.y;
-        e->motion.xrel = in->motion.xrel;
-        e->motion.yrel = in->motion.yrel;
+        e->motion.x = in->motion.x * sx;
+        e->motion.y = in->motion.y * sy;
+        e->motion.xrel = in->motion.xrel * sx;
+        e->motion.yrel = in->motion.yrel * sy;
         return 1;
+    }
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
         if (in->button.button == SDL_BUTTON_WHEELUP || in->button.button == SDL_BUTTON_WHEELDOWN) {
@@ -838,6 +895,12 @@ bool zs3_PollEvent(ZEvent* const e)
         has_pending = 0;
         if (e)
             *e = pending;
+        return true;
+    }
+    if (has_synth) {
+        has_synth = 0;
+        if (e)
+            *e = synth;
         return true;
     }
     while (SDL_PollEvent(&in)) {
