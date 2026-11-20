@@ -1,8 +1,8 @@
 # Publishes builds/ as a GitHub release: run it from the Actions tab
 # ("Release", then "Run workflow"). It creates the tag and the release on the
 # commit it runs on, or, if the release exists, updates its text and replaces
-# its files. The text is builds/RELEASE_NOTES.md; the files are
-# builds/*.tar.gz.
+# its files. The text is builds/RELEASE_NOTES.md; the files are the
+# packages in builds/ (*.tar.gz, *.hqx) and their read mes (*-ReadMe.txt).
 name: Release
 
 on:
@@ -34,7 +34,7 @@ jobs:
         run: |
           set -eu
           shopt -s nullglob
-          assets=(builds/*.tar.gz)
+          assets=(builds/*.tar.gz builds/*.hqx builds/*-ReadMe.txt)
           if [ ${#assets[@]} -eq 0 ]; then
             echo "No packages in builds/" >&2
             exit 1
