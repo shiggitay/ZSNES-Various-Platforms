@@ -4,8 +4,8 @@ Ready-to-run builds of this repository. No ROMs are included.
 
 | Package | For | Contents |
 |---|---|---|
-| [zsnes-ppc-macos9.sit.hqx](zsnes-ppc-macos9.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (included with Mac OS 8 and 9) gives you a "ZSNES PPC" folder with the application and its read me |
-| [zsnes-ppc32-ydl.tar.gz](zsnes-ppc32-ydl.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
+| [zsnes-ppc-classic-macos.sit.hqx](zsnes-ppc-classic-macos.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (included with Mac OS 8 and 9) gives you a "ZSNES PPC" folder with the application and its read me |
+| [zsnes-ppc32-linux.tar.gz](zsnes-ppc32-linux.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
 
 The [Release](../../actions/workflows/release.yml) workflow (Actions tab, Run workflow) publishes these, with [RELEASE_NOTES.md](RELEASE_NOTES.md), as a GitHub release.
 
@@ -27,8 +27,9 @@ kernel 2.4.22.
 SHA-256:
 
 ```
-9bbc894ee251d2f2e843fc8e098c47d79541fd8351e7e10333d9cc93b0587a68  zsnes-ppc-macos9.sit.hqx
-c5c2c10176e6a01c8264636b7068be4f81e8d3a5b28215b2a79da22562da5773  zsnes-ppc32-ydl.tar.gz
+778f9b128d1968c0de6e28f5f90b36c672d96c48a6761c3c66b37cca7087e5d2  zsnes-ppc-classic-macos.sit.hqx
+48085df751cedff6c4cd86932ab63c4794ed7c0d8873ec9dd0cc07bdf4313b1e  zsnes-ppc32-linux.tar.gz
 ```
 
-Built from b420eac with `tools/build-macos9.sh` and `tools/build-ydl.sh`.
+Built with `tools/build-macos9.sh` and `tools/build-ydl.sh`, and packaged
+with `tools/package-release.sh`.
