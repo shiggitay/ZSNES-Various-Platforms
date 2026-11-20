@@ -509,9 +509,20 @@ bool zs3_GetWindowSizeInPixels(SDL_Window* const win, int* const w, int* const h
 
 ZSurface* zs3_GetWindowSurface(SDL_Window* const win)
 {
-    SDL12_Surface* const s = SDL_GetVideoSurface();
+    SDL12_Surface* s;
 
-    if (!win || !s)
+    /* The software renderer asking for pixels from a window still in
+       OpenGL mode: an OpenGL mode that failed to start, and the frontend
+       falling back to a software one in the same window. SDL3 gives such a
+       window a framebuffer; SDL 1.2's OpenGL screen has none, and drawing
+       into it crashed. Set the mode again without OpenGL. */
+    if (win && (win->flags & SDL_OPENGL)) {
+        win->flags = (win->flags & ~(Uint32)SDL_OPENGL) | SDL_SWSURFACE | SDL_ANYFORMAT;
+        if (!set_mode(win))
+            return NULL;
+    }
+    s = SDL_GetVideoSurface();
+    if (!win || !s || !s->pixels)
         return NULL;
     return wrap(s, &win->surface);
 }

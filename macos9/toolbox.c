@@ -714,6 +714,18 @@ bool zs3_GetWindowSizeInPixels(SDL_Window* const win, int* const w, int* const h
 
 SDL_Surface* zs3_GetWindowSurface(SDL_Window* const win)
 {
+    /* An OpenGL mode that failed to start leaves its window to the software
+       mode the frontend falls back to: remake it as a software one, with the
+       surface and GWorld that has. */
+    if (win && win->opengl) {
+        if (gl_port_ctx) {
+            macos9_gl_destroy();
+            gl_port_ctx = NULL;
+        }
+        win->opengl = 0;
+        if (!make_window(win))
+            return NULL;
+    }
     return win && win->surface.pixels ? &win->surface : NULL;
 }
 
