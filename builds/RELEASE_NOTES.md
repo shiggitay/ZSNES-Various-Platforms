@@ -1,7 +1,7 @@
 ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs.
 
-**Mac OS 8.6 to 9.2.2** - `zsnes-ppc-macos9-build10.hqx`
-- The application, BinHex-encoded: double-click it on the Mac and StuffIt Expander (part of Mac OS 8.5 and later) gives you ZSNES, icon and all. Read me: `zsnes-ppc-macos9-build10-ReadMe.txt`.
+**Mac OS 8.6 to 9.2.2** - `zsnes-ppc-macos9-build10.sit.hqx`
+- Double-click it: StuffIt Expander, part of every Mac OS from 7.5 on (and what the browsers of the time hand downloads to), unpacks a "ZSNES PPC" folder with the application and its read me.
 - Needs 40 MB of free memory; drop a ROM on the icon or use Game > Load.
 - OpenGL video modes (the O modes) through Apple's OpenGL with an accelerated card; full screen; Video menu: Show FPS (Command-F), Full Screen (Shift-Command-F or Command-Return), Sync to Monitor. The Control Strip hides in full screen.
 
