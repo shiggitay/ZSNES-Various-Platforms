@@ -8,6 +8,8 @@ included.
 | [zsnes-ppc-macos9-build9.tar.gz](zsnes-ppc-macos9-build9.tar.gz) | Mac OS 8.6 to 9.2.2, PowerPC | `ZSNES.bin` (MacBinary, for StuffIt Expander), `ZSNES.dsk` (HFS disk image), `ReadMe.txt` |
 | [zsnes-ppc-ydl-build9.tar.gz](zsnes-ppc-ydl-build9.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
 
+The [Release](../../actions/workflows/release.yml) workflow (Actions tab, Run workflow) publishes these, with [RELEASE_NOTES.md](RELEASE_NOTES.md), as a GitHub release.
+
 Each package has a read me with requirements, keys and video modes.
 
 **Mac OS 9:** needs 40 MB of free memory; drop a ROM on the icon. Video menu:

@@ -1,0 +1,49 @@
+# Publishes builds/ as a GitHub release: run it from the Actions tab
+# ("Release", then "Run workflow"). It creates the tag and the release on the
+# commit it runs on, or, if the release exists, updates its text and replaces
+# its files. The text is builds/RELEASE_NOTES.md; the files are
+# builds/*.tar.gz.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to create or update
+        required: true
+        default: v1.0
+      title:
+        description: Release title
+        required: true
+        default: ZSNES PPC 1.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          set -eu
+          shopt -s nullglob
+          assets=(builds/*.tar.gz)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No packages in builds/" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file builds/RELEASE_NOTES.md
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITLE" \
+              --notes-file builds/RELEASE_NOTES.md "${assets[@]}"
+          fi
+          echo "Released $TAG: ${assets[*]}"
