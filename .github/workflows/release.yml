@@ -1,7 +1,8 @@
 # Publishes builds/ as a GitHub release: run it from the Actions tab
 # ("Release", then "Run workflow"). It creates the tag and the release on the
-# commit it runs on, or, if the release exists, updates its text and replaces
-# its files. The text is builds/RELEASE_NOTES.md; the files are the
+# commit it runs on, or, if the release exists, moves the tag to the commit,
+# updates its text, replaces its files and removes files no longer in builds/.
+# The text is builds/RELEASE_NOTES.md; the files are the
 # packages in builds/ (*.tar.gz, *.hqx).
 name: Release
 
