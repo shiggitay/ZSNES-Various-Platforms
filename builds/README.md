@@ -6,7 +6,7 @@ included.
 | Package | For | Contents |
 |---|---|---|
 | [zsnes-ppc-macos9-build9.tar.gz](zsnes-ppc-macos9-build9.tar.gz) | Mac OS 8.6 to 9.2.2, PowerPC | `ZSNES.bin` (MacBinary, for StuffIt Expander), `ZSNES.dsk` (HFS disk image), `ReadMe.txt` |
-| [zsnes-ppc-ydl-build9.tar.gz](zsnes-ppc-ydl-build9.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
+| [zsnes-ppc-ydl-build10.tar.gz](zsnes-ppc-ydl-build10.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
 
 The [Release](../../actions/workflows/release.yml) workflow (Actions tab, Run workflow) publishes these, with [RELEASE_NOTES.md](RELEASE_NOTES.md), as a GitHub release.
 
@@ -28,7 +28,7 @@ SHA-256:
 
 ```
 6e39df32d009c63105c6f80278a8f949addb373041b265f861b63f3590800958  zsnes-ppc-macos9-build9.tar.gz
-8f87e686d6557fc6569cb94b2f83542e853008e6e79daf73b671d8d87e140cf6  zsnes-ppc-ydl-build9.tar.gz
+5830887c9ed63559d5d0de00f33388a26114f7189a0ced6834a458290269d4b2  zsnes-ppc-ydl-build10.tar.gz
 ```
 
-Built from 2a69c8d with `tools/build-macos9.sh` and `tools/build-ydl.sh`.
+Built from 41bec2b with `tools/build-macos9.sh` and `tools/build-ydl.sh`.
