@@ -41,8 +41,16 @@ jobs:
             exit 1
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # Move the tag to this commit, so the source archives match.
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
             gh release edit "$TAG" --title "$TITLE" --notes-file builds/RELEASE_NOTES.md
             gh release upload "$TAG" "${assets[@]}" --clobber
+            # Drop files no longer in builds/ (renamed or retired packages).
+            gh release view "$TAG" --json assets --jq '.assets[].name' |
+              while read -r name; do
+                [ -f "builds/$name" ] || gh release delete-asset "$TAG" "$name" --yes
+              done
           else
             gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITLE" \
               --notes-file builds/RELEASE_NOTES.md "${assets[@]}"
