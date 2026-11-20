@@ -17,8 +17,8 @@ runs on
 The emulator core is byte-order independent: on the test suite and 164 test
 ROMs a PowerPC build produces the same machine state, picture and sound as an
 x86 one, frame for frame. Sprite, Mode 7 and background drawing were made
-markedly faster for the slower machines. Builds for both systems are on the
-[releases page](../../releases); how to make them is under
+markedly faster for the slower machines. Ready-to-run builds for both systems are in
+[builds/](builds/); how to make them is under
 [Classic Mac OS](#classic-mac-os-mac-os-86-to-922-powerpc) and
 [32-bit PowerPC](#32-bit-powerpc-yellow-dog-linux-g3g4g5-ps3) below. The rest
 of this file is the upstream README.
