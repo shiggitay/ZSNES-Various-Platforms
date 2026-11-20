@@ -11,7 +11,7 @@ runs on
   (frame counter on Command-F, full screen on Shift-Command-F or
   Command-Return); and
 * **Yellow Dog Linux 3** and other 32-bit PowerPC Linux of its age (Linux 2.4
-  or 2.6, glibc 2.3, SDL 1.2), with the same OpenGL modes through SDL 1.2 and
+  or 2.6, glibc 2.3, SDL 1.2, and theoretically newer 32-bit PowerPC Linux distros as well), with the same OpenGL modes through SDL 1.2 and
   the same shortcuts on Control.
 
 The emulator core is byte-order independent: on the test suite and 164 test
