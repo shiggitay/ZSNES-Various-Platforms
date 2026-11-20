@@ -54,19 +54,33 @@ static Uint32 sdl12_flags(Uint32 const f)
    bookkeeping stays right. */
 static bool init_audio_any(void)
 {
-    static char const* const drivers[] = { "alsa", "dsp", "dma", "esd", "arts", "nas" };
+    /* The sound card itself first, then sound servers: aRts (KDE's, and SDL
+       1.2's choice whenever artsd runs) stuttered under the emulator's load
+       on a G4/500. SDL opens /dev/dsp without blocking, so a card a server
+       holds is passed over at once and the server used instead. An
+       SDL_AUDIODRIVER the user set is tried first and alone decides if it
+       works. */
+    static char const* const drivers[] = { "alsa", "dsp", "dma", "arts", "esd", "nas" };
+    char const* const chosen = getenv("SDL_AUDIODRIVER");
+    char name[32];
     size_t i;
 
-    if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0)
-        return true;
+    if (chosen && *chosen && SDL_InitSubSystem(SDL_INIT_AUDIO) == 0)
+        goto ok;
     for (i = 0; i < sizeof drivers / sizeof drivers[0]; i++) {
         setenv("SDL_AUDIODRIVER", drivers[i], 1);
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0) {
-            fprintf(stderr, "Audio: using SDL's %s driver\n", drivers[i]);
-            return true;
-        }
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0)
+            goto ok;
     }
+    /* Whatever else this SDL has. */
+    unsetenv("SDL_AUDIODRIVER");
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0)
+        goto ok;
     return false;
+ok:
+    if (SDL_AudioDriverName(name, (int)sizeof name))
+        fprintf(stderr, "Audio: using SDL's %s driver\n", name);
+    return true;
 }
 
 bool zs3_Init(Uint32 const flags)
@@ -969,7 +983,7 @@ static void audio_callback(void* const userdata, Uint8* const out, int const len
    the hardware directly and are on every Linux of the era. */
 static int open_any_driver(SDL_AudioSpec* const want)
 {
-    static char const* const drivers[] = { "alsa", "dsp", "dma", "esd", "arts", "nas" };
+    static char const* const drivers[] = { "alsa", "dsp", "dma", "arts", "esd", "nas" };
     char tried[32] = "";
     size_t i;
 
@@ -986,8 +1000,8 @@ static int open_any_driver(SDL_AudioSpec* const want)
     /* Seen on Yellow Dog Linux 3: KDE's aRts server running but broken,
        holding /dev/dsp so nothing else could open it either. */
     fprintf(stderr, "Audio: no SDL driver could open the sound device. If a sound server such as\n"
-                    "artsd or esd is running it may be holding /dev/dsp: try 'killall artsd',\n"
-                    "then SDL_AUDIODRIVER=dsp.\n");
+                    "artsd or esd is running it may be holding /dev/dsp: 'artsshell suspend' (or\n"
+                    "'killall artsd') frees it.\n");
     return 0;
 }
 
