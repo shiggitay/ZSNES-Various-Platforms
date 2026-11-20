@@ -92,6 +92,22 @@ bool zs3_Init(Uint32 const flags)
        frozen. Plain X events are enough here. Left alone if the user set it. */
     setenv("SDL_VIDEO_X11_DGAMOUSE", "0", 0);
 
+    /* X only, unless another video driver is asked for by name. When SDL 1.2
+       cannot reach an X display it tries the Linux console's framebuffer
+       next, and with X running on that framebuffer (XFree86's UseFBDev, as
+       on Yellow Dog Linux) that brought the whole X display down - from a
+       shell that merely lacked DISPLAY. */
+    if ((f & SDL_INIT_VIDEO) && !getenv("SDL_VIDEODRIVER")) {
+        char const* const d = getenv("DISPLAY");
+
+        if (!d || !*d) {
+            SDL_SetError("no X display: DISPLAY is not set. Run ZSNES from a terminal in X "
+                         "(or SDL_VIDEODRIVER=fbcon for the console, with X not running)\n");
+            return false;
+        }
+        setenv("SDL_VIDEODRIVER", "x11", 1);
+    }
+
     /* No parachute: ZSNES installs its own signal handlers (the SDL3 build
        says so with SDL_HINT_NO_SIGNAL_HANDLERS). */
     if (SDL_WasInit(SDL_INIT_EVERYTHING) == 0 && SDL_Init(SDL_INIT_NOPARACHUTE) != 0)
@@ -342,16 +358,25 @@ static bool set_mode(struct SDL_Window* const win)
 {
     SDL12_Surface* s;
     int w = win->w, h = win->h;
+    Uint32 flags = win->flags;
 
     if (!SDL_WasInit(SDL_INIT_VIDEO) && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
         return false;
     /* Full screen in OpenGL at the desktop's own resolution: the graphics
        card scales the picture to it, so nothing is gained by switching the
        display, and on Yellow Dog Linux 3 (Radeon, XFree86 4.3, UseFBDev) the
-       switch left the screen black. */
-    if ((win->flags & SDL_OPENGL) && (win->flags & SDL_FULLSCREEN))
+       switch could leave the screen black. */
+    if ((win->flags & SDL_OPENGL) && (win->flags & SDL_FULLSCREEN)) {
+        char const* const e = getenv("ZSNES_SDL12_GLFS");
+
         desktop_size(&w, &h);
-    s = SDL_SetVideoMode(w, h, 0, win->flags);
+        /* ZSNES_SDL12_GLFS=window: a borderless window the desktop's size in
+           place of SDL's full screen, which on X goes through the window
+           manager, input grabs and XVidMode. */
+        if (e && !strcmp(e, "window"))
+            flags = (flags & ~(Uint32)SDL_FULLSCREEN) | SDL_NOFRAME;
+    }
+    s = SDL_SetVideoMode(w, h, 0, flags);
     if (!s)
         return false;
     wrap(s, &win->surface);
@@ -436,14 +461,17 @@ SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, 
     return win;
 }
 
+/* SDL 1.2 has one window and cannot close it without stopping video. The
+   frontend closes its window only to open the next at once (a video mode
+   change), and SDL_SetVideoMode turns the one window into the next by
+   itself - between OpenGL and software too - so video is left running.
+   Stopping it unloaded libGL and the DRI driver, and loading them again in
+   the same process left the screen black on Yellow Dog Linux 3 with a
+   Radeon: switching to a full-screen OpenGL mode from the menu failed where
+   starting in it worked. SDL_Quit at exit closes the window. */
 void zs3_DestroyWindow(SDL_Window* const win)
 {
-    /* SDL 1.2 cannot close its window without stopping video; the next
-       CreateWindow starts it again. */
-    if (window_open) {
-        window_open = 0;
-        SDL_QuitSubSystem(SDL_INIT_VIDEO);
-    }
+    window_open = 0;
 }
 
 bool zs3_SetWindowSize(SDL_Window* const win, int const w, int const h)
