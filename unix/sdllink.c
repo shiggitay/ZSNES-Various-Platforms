@@ -1781,7 +1781,7 @@ int startgame(void)
 
     if (sdl_state == vid_null) {
         if (!SDL_Init(SDL_INIT_VIDEO)) {
-            fprintf(stderr, "Could not initialize SDL: %s", SDL_GetError());
+            fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
             return FALSE;
         }
         sdl_state = vid_none;

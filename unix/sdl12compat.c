@@ -56,11 +56,12 @@ static bool init_audio_any(void)
 {
     /* The sound card itself first, then sound servers: aRts (KDE's, and SDL
        1.2's choice whenever artsd runs) stuttered under the emulator's load
-       on a G4/500. SDL opens /dev/dsp without blocking, so a card a server
+       on a G4/500. OSS before ALSA: it is a 2.4 kernel's own sound
+       interface, and the one that played cleanly on Yellow Dog Linux 3. SDL opens /dev/dsp without blocking, so a card a server
        holds is passed over at once and the server used instead. An
        SDL_AUDIODRIVER the user set is tried first and alone decides if it
        works. */
-    static char const* const drivers[] = { "alsa", "dsp", "dma", "arts", "esd", "nas" };
+    static char const* const drivers[] = { "dsp", "alsa", "dma", "arts", "esd", "nas" };
     char const* const chosen = getenv("SDL_AUDIODRIVER");
     char name[32];
     size_t i;
@@ -102,7 +103,7 @@ bool zs3_Init(Uint32 const flags)
 
         if (!d || !*d) {
             SDL_SetError("no X display: DISPLAY is not set. Run ZSNES from a terminal in X "
-                         "(or SDL_VIDEODRIVER=fbcon for the console, with X not running)\n");
+                         "(or SDL_VIDEODRIVER=fbcon for the console, with X not running)");
             return false;
         }
         setenv("SDL_VIDEODRIVER", "x11", 1);
@@ -1085,7 +1086,7 @@ static void audio_callback(void* const userdata, Uint8* const out, int const len
    the hardware directly and are on every Linux of the era. */
 static int open_any_driver(SDL_AudioSpec* const want)
 {
-    static char const* const drivers[] = { "alsa", "dsp", "dma", "arts", "esd", "nas" };
+    static char const* const drivers[] = { "dsp", "alsa", "dma", "arts", "esd", "nas" };
     char tried[32] = "";
     size_t i;
 
