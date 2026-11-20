@@ -2,8 +2,9 @@
 # package-release.sh - make the release packages in builds/ from the builds
 # that tools/build-ydl.sh and tools/build-macos9.sh leave:
 #
-#   builds/zsnes-ppc32-linux.tar.gz      zsnes-ppc32-linux/ with zsnes and
-#                                        README.txt (unix/ydl/README.txt)
+#   builds/zsnes-ppc32-linux.tar.gz      zsnes-ppc32-linux/ with zsnes,
+#                                        README.txt, zsnes.png and
+#                                        install-launcher.sh (unix/ppc-linux)
 #   builds/zsnes-ppc-classic-macos.sit.hqx
 #                                        a "ZSNES PPC" folder with the
 #                                        application and "ZSNES Read Me"
@@ -31,9 +32,10 @@ trap 'rm -rf "$TMP"' EXIT
 
 # Linux
 mkdir "$TMP/$LINUX"
-cp "$ROOT/zsnes" "$ROOT/unix/ydl/README.txt" "$TMP/$LINUX/"
-chmod 755 "$TMP/$LINUX/zsnes"
-chmod 644 "$TMP/$LINUX/README.txt"
+cp "$ROOT/zsnes" "$ROOT/unix/ppc-linux/README.txt" "$ROOT/unix/ppc-linux/zsnes.png" \
+    "$ROOT/unix/ppc-linux/install-launcher.sh" "$TMP/$LINUX/"
+chmod 755 "$TMP/$LINUX/zsnes" "$TMP/$LINUX/install-launcher.sh"
+chmod 644 "$TMP/$LINUX/README.txt" "$TMP/$LINUX/zsnes.png"
 tar -C "$TMP" --owner=0 --group=0 -czf "$ROOT/builds/$LINUX.tar.gz" "$LINUX"
 
 # Mac OS: a StuffIt archive of the folder, then BinHex of that, with the

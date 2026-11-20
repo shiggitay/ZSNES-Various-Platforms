@@ -5,11 +5,13 @@ ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs.
 - Needs 40 MB of free memory; drop a ROM on the icon or use Game > Load.
 - OpenGL video modes (the O modes) through Apple's OpenGL with an accelerated card; full screen; Video menu: Show FPS (Command-F), Full Screen (Shift-Command-F or Command-Return), Sync to Monitor. The Control Strip hides in full screen.
 
-**Yellow Dog Linux 3 and other 32-bit PowerPC Linux** - `zsnes-ppc32-linux.tar.gz`
-- Needs only glibc 2.3 and SDL 1.2; Linux 2.4 or 2.6. Run from a terminal in X.
+**32-bit PowerPC Linux** - `zsnes-ppc32-linux.tar.gz`
+- Needs only glibc 2.3 and SDL 1.2; Linux 2.4 or 2.6. Run from a terminal in X, or run `./install-launcher.sh` once for a desktop and menu launcher with the ZSNES icon; the window carries the icon too.
 - Ctrl-F frame counter, Ctrl-Shift-F or Alt-Enter full screen.
 - Hardware OpenGL modes through XFree86's DRI, full screen at the desktop's resolution; the read me has the XF86Config that worked for a PCI Radeon 7000.
 - Plays straight to the sound card (OSS first), through aRts only when the card is busy.
+
+Default controls: arrow keys for the d-pad, X = A, Z = B, S = X, A = Y, D/C = L/R, Return = Start, Right Shift = Select. Sound plays at 44100 Hz (CD quality), converted from the SNES's 32000 Hz by ZSNES's own filter rather than the sound driver's.
 
 Both tested on a Power Mac 8500 with a G4/500 upgrade and a Radeon 7000 (Mac OS 9; Yellow Dog Linux 3.0.1, kernel 2.4.22).
 

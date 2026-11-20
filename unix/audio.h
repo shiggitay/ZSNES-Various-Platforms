@@ -9,6 +9,10 @@
    what the GUI reports. SoundQuality does not choose it. */
 #define AUDIO_OUTPUT_RATE 32000
 
+/* The rate the sound card plays at, where the backend knows it (0 if not);
+   the GUI shows it. */
+extern unsigned audio_device_rate;
+
 void InitSampleControl(void);
 int InitSound(void);
 void DeinitSound(void);

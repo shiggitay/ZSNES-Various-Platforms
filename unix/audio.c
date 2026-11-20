@@ -106,6 +106,7 @@ static float sdl_audio_backlog = -1.0f;
 #define SDL_AUDIO_DRIFT_MAX 0.005f
 
 int SoundEnabled = 1;
+unsigned audio_device_rate;
 uint8_t PrevStereoSound;
 uint32_t PrevSoundQuality;
 
@@ -1389,6 +1390,9 @@ static int SoundInit_sdl_once(void)
         || device_frames <= 0 || device_spec.freq <= 0) {
         device_spec.freq = 48000;
         device_frames = 1024;
+        audio_device_rate = 0;
+    } else {
+        audio_device_rate = (unsigned)device_spec.freq;
     }
     period_bytes = (int)(((int64_t)device_frames * RATE + device_spec.freq - 1) / device_spec.freq)
         * wanted.channels * (int)sizeof(int16_t);

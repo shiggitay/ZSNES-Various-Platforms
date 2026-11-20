@@ -14,9 +14,16 @@ GETTING STARTED
    goes up a folder.
 3. Esc opens and closes the ZSNES menu. Command-Q quits.
 
-Default keys for player 1: the arrow keys, Return (Start), Right Shift
-(Select), Z (B), X (A), A (Y), S (X), D (L) and C (R). Change them in
-Config > Input. A Control-click is a right click.
+CONTROLS (player 1, as they come)
+    D-pad           the arrow keys
+    A               X
+    B               Z
+    X               S
+    Y               A
+    L / R           D / C
+    Start           Return
+    Select          Right Shift
+Change them in Config > Input. A Control-click is a right click.
 
 VIDEO MODES AND SPEED
 Pick a mode in Config > Video. Modes with an O use OpenGL: the graphics card
@@ -40,6 +47,11 @@ Radeon, GeForce); without them those modes fall back to 512x448 window.
   skips drawing some frames to keep the game at full speed, so the counter
   can read under 60 while the game itself runs at the right pace.
 - Thousands of colors (16-bit) is faster than Millions.
+
+SOUND
+ZSNES plays at 44100 Hz, CD quality. The SNES makes its sound at 32000 Hz;
+ZSNES converts it with a high-quality filter rather than leaving that to
+the Sound Manager, which does it coarsely.
 
 NAMES
 Mac OS 8 and 9 allow 31 characters in a file name. A ROM with a longer name

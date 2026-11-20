@@ -1351,7 +1351,7 @@ void DisplayGUISound(void)
         static char rate[8];
 
         GUIDisplayBBox(6, 15, (u4)row[SND_ROW_RATEBOX], 69, 109, 167);
-        snprintf(rate, sizeof(rate), "%5uHZ", (unsigned)AUDIO_OUTPUT_RATE);
+        snprintf(rate, sizeof(rate), "%5uHZ", audio_device_rate ? audio_device_rate : (unsigned)AUDIO_OUTPUT_RATE);
         GUIDisplayTextG(6, 23, (u4)row[SND_ROW_RATEBOX] + 3, rate);
     }
 #else

@@ -4,6 +4,7 @@
 
 #include <sched.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 
@@ -17,6 +18,8 @@
 #include <GL/gl.h>
 
 #include "glupload.h"
+#include "resample.h"
+#include "zsnes_icon.h"
 
 extern unsigned char FPSOn;     /* video/procvid.c */
 extern unsigned char frameskip; /* the configuration's; 0 is automatic */
@@ -355,6 +358,29 @@ static int desktop_size(int* const w, int* const h)
 static ZEvent synth; /* a window event the shim makes up itself */
 static int has_synth;
 
+/* The window's icon, for the window manager's title bar, task bar and
+   Alt-Tab. SDL 1.2 takes it only before the first SDL_SetVideoMode. */
+static void set_icon(void)
+{
+    static int done;
+    SDL12_Surface* icon;
+
+    if (done)
+        return;
+    done = 1;
+    icon = SDL_CreateRGBSurfaceFrom(zsnes_icon_rgba, ZSNES_ICON_W, ZSNES_ICON_H, 32, ZSNES_ICON_W * 4,
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
+#else
+        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
+#endif
+    );
+    if (icon) {
+        SDL_WM_SetIcon(icon, zsnes_icon_mask);
+        SDL_FreeSurface(icon);
+    }
+}
+
 static bool set_mode(struct SDL_Window* const win)
 {
     SDL12_Surface* s;
@@ -363,6 +389,7 @@ static bool set_mode(struct SDL_Window* const win)
 
     if (!SDL_WasInit(SDL_INIT_VIDEO) && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
         return false;
+    set_icon();
     /* Full screen in OpenGL at the desktop's own resolution: the graphics
        card scales the picture to it, so nothing is gained by switching the
        display, and on Yellow Dog Linux 3 (Radeon, XFree86 4.3, UseFBDev) the
@@ -1061,8 +1088,22 @@ bool zs3_WaitSemaphoreTimeout(SDL_Semaphore* const s, Sint32 const ms)
 struct SDL_AudioStream {
     Uint8 ring[RING_BYTES];
     unsigned head, tail; /* free-running; the difference is what is queued */
-    int freq, channels, samples;
+    int freq, channels, samples; /* the device's */
+    int in_freq;                 /* the frontend's (the DSP's 32000 Hz) */
+    int resample;                /* rs converts in_freq to freq */
+    zrs rs;
 };
+
+/* The rate the sound card is opened at: 44100 Hz, as a CD, which every card
+   of the era plays natively; ZSNES_AUDIO_RATE picks another (48000, or
+   32000 to leave the conversion to the driver as before). */
+static int device_rate(void)
+{
+    char const* const e = getenv("ZSNES_AUDIO_RATE");
+    int const r = e ? atoi(e) : 0;
+
+    return r >= 8000 && r <= 96000 ? r : 44100;
+}
 
 static struct SDL_AudioStream* the_stream;
 
@@ -1119,7 +1160,11 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, zs3_Audi
     if (!(s = (struct SDL_AudioStream*)calloc(1, sizeof *s)))
         return NULL;
     memset(&want, 0, sizeof want);
-    want.freq = spec->freq;
+    want.freq = device_rate();
+    if (want.freq != spec->freq)
+        s->resample = zrs_init(&s->rs, (unsigned)spec->freq, (unsigned)want.freq, (unsigned)spec->channels) == 0;
+    if (!s->resample)
+        want.freq = spec->freq;
     want.format = AUDIO_S16SYS; /* host order, as SDL3's SDL_AUDIO_S16 */
     want.channels = (Uint8)spec->channels;
     want.samples = 1024;
@@ -1128,10 +1173,13 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, zs3_Audi
     /* No obtained spec: SDL 1.2 then converts to the device itself, so the
        format asked for is the format the callback fills. */
     if (SDL_OpenAudio(&want, NULL) != 0 && !open_any_driver(&want)) {
+        if (s->resample)
+            zrs_free(&s->rs);
         free(s);
         return NULL;
     }
-    s->freq = spec->freq;
+    s->freq = want.freq;
+    s->in_freq = spec->freq;
     s->channels = spec->channels;
     s->samples = want.samples;
     the_stream = s;
@@ -1143,6 +1191,8 @@ void zs3_DestroyAudioStream(SDL_AudioStream* const s)
     if (s && s == the_stream) {
         SDL_CloseAudio();
         the_stream = NULL;
+        if (s->resample)
+            zrs_free(&s->rs);
         free(s);
     }
 }
@@ -1153,33 +1203,59 @@ bool zs3_ResumeAudioStreamDevice(SDL_AudioStream* const s)
     return s != NULL;
 }
 
-bool zs3_PutAudioStreamData(SDL_AudioStream* const s, void const* const buf, int const len)
+static void ring_put(struct SDL_AudioStream* const s, Uint8 const* const in, unsigned const len)
 {
-    Uint8 const* const in = (Uint8 const*)buf;
     unsigned room, n, i;
 
-    if (!s || len < 0)
-        return false;
     SDL_LockAudio();
     room = RING_BYTES - (s->head - s->tail);
-    n = (unsigned)len < room ? (unsigned)len : room; /* a full ring drops the rest */
+    n = len < room ? len : room; /* a full ring drops the rest */
     for (i = 0; i < n; i++)
         s->ring[(s->head + i) % RING_BYTES] = in[i];
     s->head += n;
     SDL_UnlockAudio();
+}
+
+bool zs3_PutAudioStreamData(SDL_AudioStream* const s, void const* const buf, int const len)
+{
+    if (!s || len < 0)
+        return false;
+    if (!s->resample) {
+        ring_put(s, (Uint8 const*)buf, (unsigned)len);
+    } else {
+        /* Converted a piece at a time, outside the lock. */
+        enum { PIECE = 512 };
+        static Sint16 out[2 * (PIECE * 3 + 8)]; /* room up to 3x the rate */
+        Sint16 const* in = (Sint16 const*)buf;
+        unsigned frames = (unsigned)len / (2u * (unsigned)s->channels);
+
+        while (frames) {
+            unsigned const n = frames < PIECE ? frames : PIECE;
+            unsigned const made = zrs_max_out(&s->rs, n) <= PIECE * 3 + 8 ? zrs_run(&s->rs, in, n, out) : 0;
+
+            ring_put(s, (Uint8 const*)out, made * 2u * (unsigned)s->channels);
+            in += n * (unsigned)s->channels;
+            frames -= n;
+        }
+    }
     return true;
 }
 
+/* What is queued, in the frontend's bytes (at its rate), as SDL3 counts it. */
 int zs3_GetAudioStreamQueued(SDL_AudioStream* const s)
 {
-    int n;
+    unsigned n, frame;
 
     if (!s)
         return -1;
     SDL_LockAudio();
-    n = (int)(s->head - s->tail);
+    n = s->head - s->tail;
     SDL_UnlockAudio();
-    return n;
+    if (s->resample) {
+        frame = 2u * (unsigned)s->channels;
+        n = (unsigned)((unsigned long long)(n / frame) * (unsigned)s->in_freq / (unsigned)s->freq) * frame;
+    }
+    return (int)n;
 }
 
 /* No resampler here; the frontend's drift control asks for ratios a fraction

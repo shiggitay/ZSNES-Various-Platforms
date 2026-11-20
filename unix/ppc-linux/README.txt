@@ -1,7 +1,36 @@
-ZSNES PPC 1.0 for Yellow Dog Linux 3 (PowerPC)
+ZSNES PPC 1.0 for 32-bit PowerPC Linux
 
-Run it from a terminal in X (ZSNES will not start without an X display):
-    ./zsnes "/path/to/game.smc"
+WHAT YOU NEED
+- A PowerPC Mac or other 32-bit PowerPC machine (G3 or G4 recommended)
+  running Linux 2.4 or 2.6 with glibc 2.3 or newer, X and SDL 1.2.
+- Tested on Yellow Dog Linux 3.0.1 (kernel 2.4.22) on a Power Mac 8500 with
+  a G4/500 upgrade card and an ATI Radeon 7000.
+
+GETTING STARTED
+1. Unpack the archive where you want to keep ZSNES:
+       tar xzf zsnes-ppc32-linux.tar.gz
+2. Run it from a terminal in X (ZSNES will not start without an X display):
+       cd zsnes-ppc32-linux
+       ./zsnes "/path/to/game.smc"
+   or without a ROM, and pick one in its menu (Game > Load).
+3. For a launcher with the ZSNES icon on the desktop and in the KDE or
+   GNOME menu, run once:
+       ./install-launcher.sh
+   It points at this folder, so run it again if you move the folder. A ROM
+   dropped on the desktop launcher starts ZSNES with that game.
+Settings are kept in ~/.config/zsnes (or in ~/.zsnes, if you have one
+from an older ZSNES).
+
+CONTROLS (player 1, as they come)
+    D-pad           the arrow keys
+    A               X
+    B               Z
+    X               S
+    Y               A
+    L / R           D / C
+    Start           Return
+    Select          Right Shift
+Change them in Config > Input.
 
 KEYS
     Esc             ZSNES menu
@@ -12,13 +41,15 @@ VIDEO MODES (Config > Video)
 Modes with an O use OpenGL: the graphics card scales the picture.
 - 512x448 ODR W, 768x672 ODR W ...: fixed windows.
 - VARIABLE ODR W / ODS W: a window you can resize to any size.
-- 640x480 ODS F, 800x600 ODS F, 1024x768 ODS F ...: full screen at that
-  resolution.
-They need OpenGL drawn by the graphics card (XFree86's DRI). Full screen
-in an O mode keeps the desktop's resolution and the card stretches the
-picture to it.
-On Yellow Dog Linux 3 with a PCI Radeon 7000 in a Power Mac 8500, DRI
-worked with these in /etc/X11/XF86Config (and "modprobe radeon" at boot):
+- 640x480 ODS F, 800x600 ODS F, 1024x768 ODS F ...: full screen. Full
+  screen keeps the desktop's resolution and the card stretches the picture
+  to it.
+They need OpenGL drawn by the graphics card: XFree86's or X.Org's DRI.
+Check with:
+    glxinfo | grep "direct rendering"       (it should say Yes)
+For example, with a PCI Radeon 7000 in a Power Mac 8500 under XFree86 4.3,
+DRI worked with these in /etc/X11/XF86Config (and "modprobe radeon" before
+X starts):
     Section "Module":  Load "dri"
     Section "Device":  BusID "PCI:0:14:0"   (your card's, from the X log)
                        Option "UseFBDev" "true"
@@ -26,7 +57,6 @@ worked with these in /etc/X11/XF86Config (and "modprobe radeon" at boot):
     Section "Screen":  DefaultDepth 16, and Depth 16 in "Display"
                        (15 and 24 garbled the whole desktop)
     Section "DRI":     Mode 0666
-Check with: glxinfo | grep "direct rendering"  (Yes, Mesa DRI Radeon).
 If full screen in an O mode stays black, try it as a borderless window the
 size of the desktop instead:
     ZSNES_SDL12_GLFS=window ./zsnes ...
@@ -44,10 +74,14 @@ frame rate on a monitor not running at 60 Hz). To wait anyway, on an SDL of
     ZSNES_SDL12_VSYNC=1 ./zsnes ...
 
 SOUND
+ZSNES plays at 44100 Hz, CD quality. The SNES makes its sound at 32000 Hz;
+ZSNES converts it with a high-quality filter rather than leaving that to
+the sound driver, which does it coarsely. ZSNES_AUDIO_RATE=48000 (or
+another rate) opens the card at that rate instead.
 ZSNES plays straight to the sound card when it can (OSS /dev/dsp, then
-ALSA), and through a sound server (aRts, ESD) only when the card is
-busy; it says in the terminal which it used. On Yellow Dog Linux 3, aRts
-stuttered under ZSNES's load, so to keep it off the card while you play:
+ALSA), and through a sound server (aRts, ESD) only when the card is busy;
+it says in the terminal which it used. KDE 3's aRts can stutter under
+ZSNES's load; to keep it off the card while you play:
     artsshell suspend
 before starting ZSNES (artsd keeps running and takes the card back when a
 KDE program next plays something), or in KDE Control Center > Sound System
@@ -56,22 +90,18 @@ If aRts fails with "loading the aRts backend /usr/lib/libartscbackend.la
 failed", that file is missing; recreating it (it describes
 libartscbackend.so.0) fixes aRts for every program.
 
-ALSO
-- Fixed (ZSNES PPC 1.0): on the 2.4 kernel, no snow in the menu and a black
-  screen in games. Linux 2.4 lacks the clock ZSNES timed its frames with,
-  so time stood still; it now falls back to the ordinary clock.
-- Fixed: the hang after the first frame in full screen (ZSNES no longer
-  asks X to grab the mouse pointer).
-- Faster sprite, Mode 7 and background drawing.
-- Sound falls back to any SDL driver that works (ALSA, OSS, ESD, aRts).
+NOTES
+- Linux 2.4 lacks the clock ZSNES times its frames with; ZSNES falls back
+  to the ordinary clock there.
+- ZSNES does not grab the mouse pointer in full screen (on some X servers
+  of the era that hung it after the first frame).
 
 ABOUT ZSNES PPC
 ZSNES PPC is ZSNES for PowerPC: a fork of ZSNES 2, Alexander F. Rodseth's C
-port of ZSNES (github.com/xyproto/zsnes), built for Yellow Dog Linux 3 and
-other 32-bit PowerPC Linux (Linux 2.4 or 2.6, glibc 2.3, SDL 1.2). The
-emulator core gives the same machine state, picture and sound as on an x86
-PC, frame for frame, and its sprite, Mode 7 and background drawing were made
-faster for older machines. No ROMs are included.
+port of ZSNES (github.com/xyproto/zsnes), built for 32-bit PowerPC Linux.
+The emulator core gives the same machine state, picture and sound as on an
+x86 PC, frame for frame, and its sprite, Mode 7 and background drawing were
+made faster for older machines. No ROMs are included.
 
 Source code, other builds and problem reports:
     https://github.com/shiggitay/zsnes-ppc

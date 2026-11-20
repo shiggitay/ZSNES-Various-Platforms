@@ -772,6 +772,7 @@ ifeq ($(WITH_SDL12),yes)
 SRCS += unix/sdl12compat.c
 SRCS += unix/sdl12gl.c
 SRCS += unix/glupload.c
+SRCS += unix/resample.c
 CFGDEFS += -DZSNES_SDL12
 CFLAGS += -Iunix/glcompat
 else

@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include "../unix/sdl12compat.h"
+#include "../unix/resample.h"
 #include "macextra.h"
 #include "macos9.h"
 
@@ -1463,10 +1464,19 @@ bool zs3_WaitSemaphoreTimeout(SDL_Semaphore* const s, Sint32 const ms)
 #define BUF_FRAMES 1024
 #define NBUFS 2
 
+/* The Sound Manager is given 44100 Hz, as a CD and as the Power Macs'
+   sound hardware runs, converted from the DSP's 32000 Hz here
+   (unix/resample.c): the Sound Manager's own rate conversion is linear
+   interpolation, which is heard as grit and whistling on high notes. */
+#define DEVICE_RATE 44100
+
 struct SDL_AudioStream {
     Uint8 ring[RING_BYTES];
     volatile unsigned head, tail; /* the emulator writes head, the callback tail */
-    int freq, channels;
+    int freq, channels; /* the device's */
+    int in_freq;        /* the frontend's (the DSP's 32000 Hz) */
+    int resample;       /* rs converts in_freq to freq */
+    zrs rs;
     SndChannelPtr chan;
     SndCallbackUPP cb;
     ExtSoundHeader hdr[NBUFS];
@@ -1532,8 +1542,13 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
         set_error("Out of memory for sound");
         return NULL;
     }
-    s->freq = spec->freq;
+    s->in_freq = s->freq = spec->freq;
     s->channels = spec->channels;
+    if (spec->freq != DEVICE_RATE
+        && zrs_init(&s->rs, (unsigned)spec->freq, DEVICE_RATE, (unsigned)spec->channels) == 0) {
+        s->resample = 1;
+        s->freq = DEVICE_RATE;
+    }
     for (i = 0; i < NBUFS; i++) {
         ExtSoundHeader* const h = &s->hdr[i];
 
@@ -1561,6 +1576,8 @@ fail:
     for (i = 0; i < NBUFS; i++)
         if (s->data[i])
             DisposePtr((Ptr)s->data[i]);
+    if (s->resample)
+        zrs_free(&s->rs);
     DisposePtr((Ptr)s);
     return NULL;
 }
@@ -1593,28 +1610,64 @@ void zs3_DestroyAudioStream(SDL_AudioStream* const s)
     sound_started = 0;
     for (i = 0; i < NBUFS; i++)
         DisposePtr((Ptr)s->data[i]);
+    if (s->resample)
+        zrs_free(&s->rs);
     DisposeSndCallbackUPP(s->cb);
     DisposePtr((Ptr)s);
 }
 
-bool zs3_PutAudioStreamData(SDL_AudioStream* const s, void const* const buf, int const len)
+static void ring_put(struct SDL_AudioStream* const s, Uint8 const* const buf, unsigned const len)
 {
     unsigned room, n, h, first;
 
-    if (!s || len < 0)
-        return false;
     room = RING_BYTES - (s->head - s->tail);
-    n = (unsigned)len < room ? (unsigned)len : room;
+    n = len < room ? len : room;
     n &= ~3u; /* whole stereo frames */
     h = s->head % RING_BYTES;
     first = RING_BYTES - h < n ? RING_BYTES - h : n;
     memcpy(s->ring + h, buf, first);
-    memcpy(s->ring, (Uint8 const*)buf + first, n - first);
+    memcpy(s->ring, buf + first, n - first);
     s->head += n; /* after the copy: the callback reads up to head */
+}
+
+bool zs3_PutAudioStreamData(SDL_AudioStream* const s, void const* const buf, int const len)
+{
+    if (!s || len < 0)
+        return false;
+    if (!s->resample) {
+        ring_put(s, (Uint8 const*)buf, (unsigned)len);
+    } else {
+        enum { PIECE = 512 };
+        static Sint16 out[2 * (PIECE * 3 + 8)]; /* room up to 3x the rate */
+        Sint16 const* in = (Sint16 const*)buf;
+        unsigned frames = (unsigned)len / (2u * (unsigned)s->channels);
+
+        while (frames) {
+            unsigned const n = frames < PIECE ? frames : PIECE;
+            unsigned const made = zrs_run(&s->rs, in, n, out);
+
+            ring_put(s, (Uint8 const*)out, made * 2u * (unsigned)s->channels);
+            in += n * (unsigned)s->channels;
+            frames -= n;
+        }
+    }
     return true;
 }
 
-int zs3_GetAudioStreamQueued(SDL_AudioStream* const s) { return s ? (int)(s->head - s->tail) : -1; }
+/* What is queued, in the frontend's bytes (at its rate), as SDL3 counts it. */
+int zs3_GetAudioStreamQueued(SDL_AudioStream* const s)
+{
+    unsigned n, frame;
+
+    if (!s)
+        return -1;
+    n = s->head - s->tail;
+    if (s->resample) {
+        frame = 2u * (unsigned)s->channels;
+        n = (unsigned)((unsigned long long)(n / frame) * (unsigned)s->in_freq / (unsigned)s->freq) * frame;
+    }
+    return (int)n;
+}
 bool zs3_SetAudioStreamFrequencyRatio(SDL_AudioStream* const s, float const ratio) { return s != NULL; }
 SDL_AudioDeviceID zs3_GetAudioStreamDevice(SDL_AudioStream* const s) { return s ? 1 : 0; }
 
