@@ -1,8 +1,33 @@
+# ZSNES PPC
+
+<img align="right" width="128" height="128" alt="logo" src="img/128x128x32.png">
+
+ZSNES PPC is ZSNES for PowerPC Macs: a fork of
+[xyproto/zsnes](https://github.com/xyproto/zsnes) (ZSNES 2, the C port) that
+runs on
+
+* **classic Mac OS 8.6 to 9.2.2**, as a native PowerPC application, with
+  OpenGL video modes through Apple's OpenGL, full screen, and a Video menu
+  (frame counter on Command-F, full screen on Shift-Command-F or
+  Command-Return); and
+* **Yellow Dog Linux 3** and other 32-bit PowerPC Linux of its age (Linux 2.4
+  or 2.6, glibc 2.3, SDL 1.2), with the same OpenGL modes through SDL 1.2 and
+  the same shortcuts on Control.
+
+The emulator core is byte-order independent: on the test suite and 164 test
+ROMs a PowerPC build produces the same machine state, picture and sound as an
+x86 one, frame for frame. Sprite, Mode 7 and background drawing were made
+markedly faster for the slower machines. Builds for both systems are on the
+[releases page](../../releases); how to make them is under
+[Classic Mac OS](#classic-mac-os-mac-os-86-to-922-powerpc) and
+[32-bit PowerPC](#32-bit-powerpc-yellow-dog-linux-g3g4g5-ps3) below. The rest
+of this file is the upstream README.
+
+---
+
 # ZSNES 2
 
 [![CI](https://github.com/xyproto/zsnes/actions/workflows/build.yml/badge.svg)](https://github.com/xyproto/zsnes/actions/workflows/build.yml)
-
-<img align="right" width="128" height="128" alt="logo" src="img/128x128x32.png">
 
 The last release of [ZSNES](http://zsnes.sourceforge.net/) was over 18 years ago (2007-10-31). The development of ZSNES started in 1997. It requires heavy patching and tweaking of compilation flags to build and run on a modern Linux distro. Most of it was written in 32-bit x86 Assembly, with MMX instructions.
 
@@ -242,7 +267,8 @@ me). The frontend is the Unix one: `macos9/toolbox.c` is the part of SDL3 it
 uses, written on the Toolbox (a window and a 16-bit GWorld, GetKeys, the Sound
 Manager), and `macos9/posix.c` gives it Unix paths over the File Manager, `/`
 being the list of mounted disks. It links against InterfaceLib and
-AppearanceLib only. There are no joysticks or netplay yet, and no Carbon build:
+AppearanceLib, and weakly against OpenGLLibrary (for the OpenGL video modes)
+and ControlStripLib (hidden in full screen), so it starts without either. There are no joysticks or netplay yet, and no Carbon build:
 Carbon needs Apple's Universal Interfaces, which Retro68 cannot redistribute.
 Pass `MACOS9_CFLAGS=-mcpu=7400` (or `750`) to tune for a G4 (or G3).
 
