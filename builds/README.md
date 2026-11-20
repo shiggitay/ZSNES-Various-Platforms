@@ -22,9 +22,9 @@ Linux 3.0.1 with kernel 2.4.22.
 SHA-256:
 
 ```
-a4dea028353185019ca498a0cd069354b799ec59f34289676624e62c65f87f14  zsnes-ppc-macos9.tar.gz
-aa13b8fa441015cf87014e58cf627d772270febfcd24401964f115c22bb3d9f1  zsnes-ppc-ydl.tar.gz
+09ee9e7d1922530cb0579d5147a0d44be1c2431b241a39e11e7759d8b70bd3b5  zsnes-ppc-macos9.tar.gz
+4ee2c314f69b7d172aa6ccc513abf1e03e43d04269c285139dd3a832097532d8  zsnes-ppc-ydl.tar.gz
 ```
 
-Built from the commit before the one that added them, with
+Built from fd52aba, with
 `tools/build-macos9.sh` and `tools/build-ydl.sh`.
