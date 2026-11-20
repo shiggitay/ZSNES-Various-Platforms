@@ -983,6 +983,11 @@ static int open_any_driver(SDL_AudioSpec* const want)
             return 1;
         }
     }
+    /* Seen on Yellow Dog Linux 3: KDE's aRts server running but broken,
+       holding /dev/dsp so nothing else could open it either. */
+    fprintf(stderr, "Audio: no SDL driver could open the sound device. If a sound server such as\n"
+                    "artsd or esd is running it may be holding /dev/dsp: try 'killall artsd',\n"
+                    "then SDL_AUDIODRIVER=dsp.\n");
     return 0;
 }
 
