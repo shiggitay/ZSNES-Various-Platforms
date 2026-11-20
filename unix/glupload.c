@@ -17,18 +17,63 @@
 
 static int packed_565; /* the driver takes GL_UNSIGNED_SHORT_5_6_5 */
 
+static int big_endian(void)
+{
+    union {
+        GLushort s;
+        GLubyte b[2];
+    } const u = { 0x0102 };
+
+    return u.b[0] == 1;
+}
+
 void zgl_detect(void)
 {
     char const* const v = (char const*)glGetString(GL_VERSION);
     char const* const ext = (char const*)glGetString(GL_EXTENSIONS);
+    char const* const r = (char const*)glGetString(GL_RENDERER);
+    char const* const force = getenv("ZSNES_GL_UPLOAD");
     int major = 1, minor = 0;
 
     if (v)
         sscanf(v, "%d.%d", &major, &minor);
     packed_565 = major > 1 || (major == 1 && minor >= 2)
         || (ext && (strstr(ext, "GL_APPLE_packed_pixel") != NULL));
-    printf("OpenGL: %s, %s%s\n", (char const*)glGetString(GL_RENDERER), v ? v : "?",
-        packed_565 ? "" : " (converting 5:6:5 uploads)");
+    /* Mesa's hardware drivers of the XFree86 4.3 era read 5:6:5 texels with
+       their bytes swapped on a big-endian machine: on Yellow Dog Linux 3
+       with a Radeon 7000 and DRI, the picture came out in inverted, wrong
+       colours. Bytes in RGBA order mean the same to every driver. */
+    if (packed_565 && big_endian() && r && strstr(r, "Mesa DRI"))
+        packed_565 = 0;
+    /* ZSNES_GL_UPLOAD=565 or =rgba overrides the choice. */
+    if (force && !strcmp(force, "565"))
+        packed_565 = 1;
+    else if (force && !strcmp(force, "rgba"))
+        packed_565 = 0;
+    printf("OpenGL: %s, %s%s\n", r ? r : "?", v ? v : "?",
+        packed_565 ? "" : " (converting 5:6:5 uploads to RGBA)");
+}
+
+/* 5:6:5 to the four bytes R, G, B, A, as one 32-bit store whatever the
+   host's byte order. */
+static GLuint* rgba_lut;
+
+static int make_rgba_lut(void)
+{
+    unsigned p;
+
+    if (rgba_lut)
+        return 1;
+    if (!(rgba_lut = (GLuint*)malloc(65536 * sizeof *rgba_lut)))
+        return 0;
+    for (p = 0; p < 65536; p++) {
+        unsigned const r5 = p >> 11, g6 = p >> 5 & 63, b5 = p & 31;
+        GLubyte const px[4] = { (GLubyte)(r5 << 3 | r5 >> 2), (GLubyte)(g6 << 2 | g6 >> 4),
+            (GLubyte)(b5 << 3 | b5 >> 2), 0xFF };
+
+        memcpy(&rgba_lut[p], px, 4);
+    }
+    return 1;
 }
 
 static GLint row_length, skip_pixels, skip_rows;
@@ -64,6 +109,8 @@ static GLvoid const* repack(GLsizei const w, GLsizei const h, GLvoid const* cons
         return NULL;
     if (packed_565 && stride == w && !skip_pixels && !skip_rows)
         return pixels;
+    if (!packed_565 && !make_rgba_lut())
+        return NULL;
     if (need > cap) {
         free(buf);
         buf = (GLubyte*)malloc(need);
@@ -77,16 +124,10 @@ static GLvoid const* repack(GLsizei const w, GLsizei const h, GLvoid const* cons
         if (packed_565) {
             memcpy(buf + (size_t)y * w * 2, in, (size_t)w * 2);
         } else {
-            GLubyte* out = buf + (size_t)y * w * 4;
+            GLuint* const out = (GLuint*)(void*)(buf + (size_t)y * w * 4);
 
-            for (x = 0; x < w; x++) {
-                GLushort const p = in[x];
-                out[0] = (GLubyte)((p >> 8 & 0xF8) | p >> 13);
-                out[1] = (GLubyte)((p >> 3 & 0xFC) | (p >> 9 & 3));
-                out[2] = (GLubyte)((p << 3 & 0xF8) | (p >> 2 & 7));
-                out[3] = 0xFF;
-                out += 4;
-            }
+            for (x = 0; x < w; x++)
+                out[x] = rgba_lut[in[x]];
         }
     }
     return buf;
