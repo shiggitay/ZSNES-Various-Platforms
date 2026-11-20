@@ -1,4 +1,4 @@
-ZSNES PPC 1.0 for Mac OS 8 and 9 (PowerPC)
+ZSNES PPC 1.0 for Mac OS 8.6 - 9.2.2 (PowerPC)
 
 WHAT YOU NEED
 - A PowerPC Mac (G3 or G4 recommended) with Mac OS 8.6 to 9.2.2. It runs

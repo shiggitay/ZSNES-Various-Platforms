@@ -27,7 +27,7 @@ kernel 2.4.22.
 SHA-256:
 
 ```
-3e8b92c24aa8fbcfee53489e587492f6a90275b758150d873cdde9450d6a136e  zsnes-ppc-macos9.sit.hqx
+9bbc894ee251d2f2e843fc8e098c47d79541fd8351e7e10333d9cc93b0587a68  zsnes-ppc-macos9.sit.hqx
 c5c2c10176e6a01c8264636b7068be4f81e8d3a5b28215b2a79da22562da5773  zsnes-ppc32-ydl.tar.gz
 ```
 
