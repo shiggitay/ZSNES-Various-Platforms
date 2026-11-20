@@ -5,7 +5,7 @@ included.
 
 | Package | For | Contents |
 |---|---|---|
-| [zsnes-ppc-macos9-build10.sit.hqx](zsnes-ppc-macos9-build10.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (part of Mac OS 7.5 and later) gives you a "ZSNES PPC" folder with the application and its read me |
+| [zsnes-ppc-macos9-build10.sit.hqx](zsnes-ppc-macos9-build10.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (included with Mac OS 8 and 9) gives you a "ZSNES PPC" folder with the application and its read me |
 | [zsnes-ppc-ydl-build10.tar.gz](zsnes-ppc-ydl-build10.tar.gz) | Yellow Dog Linux 3 and other 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt` |
 
 The [Release](../../actions/workflows/release.yml) workflow (Actions tab, Run workflow) publishes these, with [RELEASE_NOTES.md](RELEASE_NOTES.md), as a GitHub release.
