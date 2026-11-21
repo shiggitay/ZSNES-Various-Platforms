@@ -18,7 +18,7 @@ ZSNES's own filter.
 **Mac OS 9:** needs 40 MB of free memory; drop a ROM on the icon. Video menu:
 Show FPS (Command-F), Full Screen (Shift-Command-F or Command-Return), Sync to
 Monitor. OpenGL modes need Apple's OpenGL and an accelerated card. Tested on
-a Power Mac 8500 with a G4/500 upgrade and a Radeon 7000.
+a Power Mac 8500 with a Buffalo G4/500 MHz upgrade and a Radeon 7000.
 
 **PowerPC Linux:** run `./zsnes game.smc` from a terminal in X, or
 `./install-launcher.sh` once for a launcher with the ZSNES icon. Ctrl-F
@@ -31,8 +31,8 @@ kernel 2.4.22.
 SHA-256:
 
 ```
-da141c5223435e044ebd0626833d289e5d3a38c178e3fda5144a90ea8a67b5b1  zsnes-ppc-classic-macos.sit.hqx
-4bbf7a4ce94ee7debcbd64253a97fc42b347de70d79ca2260b3b4fc17e5d9650  zsnes-ppc32-linux.tar.gz
+52cc461aac3d5d9fbab3310693300b9a1d4795a4417ae0f56be62cc370f6d19d  zsnes-ppc-classic-macos.sit.hqx
+a183b10186e286656cdcfadbace80b71ea7582ccae1b5335cb840b7192b191c5  zsnes-ppc32-linux.tar.gz
 ```
 
 Built with `tools/build-macos9.sh` and `tools/build-ydl.sh`, and packaged

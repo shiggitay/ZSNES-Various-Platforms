@@ -59,7 +59,7 @@ static bool init_audio_any(void)
 {
     /* The sound card itself first, then sound servers: aRts (KDE's, and SDL
        1.2's choice whenever artsd runs) stuttered under the emulator's load
-       on a G4/500. OSS before ALSA: it is a 2.4 kernel's own sound
+       on a Buffalo G4/500 MHz. OSS before ALSA: it is a 2.4 kernel's own sound
        interface, and the one that played cleanly on Yellow Dog Linux 3. SDL opens /dev/dsp without blocking, so a card a server
        holds is passed over at once and the server used instead. An
        SDL_AUDIODRIVER the user set is tried first and alone decides if it

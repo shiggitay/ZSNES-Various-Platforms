@@ -4,7 +4,7 @@ WHAT YOU NEED
 - A PowerPC Mac or other 32-bit PowerPC machine (G3 or G4 recommended)
   running Linux 2.4 or 2.6 with glibc 2.3 or newer, X and SDL 1.2.
 - Tested on Yellow Dog Linux 3.0.1 (kernel 2.4.22) on a Power Mac 8500 with
-  a G4/500 upgrade card and an ATI Radeon 7000.
+  a Buffalo G4/500 MHz upgrade card and an ATI Radeon 7000.
 
 GETTING STARTED
 1. Unpack the archive where you want to keep ZSNES:

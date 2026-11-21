@@ -13,6 +13,6 @@ ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs.
 
 Default controls: arrow keys for the d-pad, X = A, Z = B, S = X, A = Y, D/C = L/R, Return = Start, Right Shift = Select. Sound plays at 44100 Hz (CD quality), converted from the SNES's 32000 Hz by ZSNES's own filter rather than the sound driver's.
 
-Both tested on a Power Mac 8500 with a G4/500 upgrade and a Radeon 7000 (Mac OS 9; Yellow Dog Linux 3.0.1, kernel 2.4.22).
+Both tested on a Power Mac 8500 with a Buffalo G4/500 MHz upgrade and a Radeon 7000 (Mac OS 9; Yellow Dog Linux 3.0.1, kernel 2.4.22).
 
 The emulator core gives the same machine state, picture and sound as on x86, frame for frame, on the test suite and 164 test ROMs; sprite, Mode 7 and background drawing are markedly faster than upstream's. No ROMs are included.
