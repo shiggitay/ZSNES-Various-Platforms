@@ -10,6 +10,9 @@
 #                                        application and "ZSNES Read Me"
 #                                        (macos9/ReadMe.txt), as StuffIt in
 #                                        BinHex: StuffIt Expander opens it
+#   builds/zsnes-ppc-macosx.sit.hqx      the same for the Carbon build
+#                                        (CARBON=1 tools/build-macos9.sh),
+#                                        with macos9/ReadMe-MacOSX.txt
 #
 # Then prints the SHA-256 sums for builds/README.md. Needs hfsutils (Retro68
 # builds them; set RETRO68 as for build-macos9.sh) for the BinHex encoding.
@@ -21,8 +24,9 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 if [ -n "${RETRO68:-}" ]; then PATH=$RETRO68/bin:$PATH; fi
 LINUX=zsnes-ppc32-linux
 MAC=zsnes-ppc-classic-macos
+MACOSX=zsnes-ppc-macosx
 
-for f in "$ROOT/zsnes" "$ROOT/build-macos9/ZSNES.bin"; do
+for f in "$ROOT/zsnes" "$ROOT/build-macos9/ZSNES.bin" "$ROOT/build-macos9-carbon/ZSNES.bin"; do
     [ -f "$f" ] || { echo "missing $f: build it first" >&2; exit 1; }
 done
 command -v hcopy >/dev/null || { echo "need hfsutils (hcopy): set RETRO68" >&2; exit 1; }
@@ -40,19 +44,24 @@ tar -C "$TMP" --owner=0 --group=0 -czf "$ROOT/builds/$LINUX.tar.gz" "$LINUX"
 
 # Mac OS: a StuffIt archive of the folder, then BinHex of that, with the
 # archive's type and creator, from an HFS volume hfsutils can read.
-tr '\n' '\r' < "$ROOT/macos9/ReadMe.txt" > "$TMP/ReadMe.cr"
-python3 "$ROOT/tools/mksit.py" "$TMP/ZSNES-PPC.sit" "ZSNES PPC" \
-    "ZSNES=$ROOT/build-macos9/ZSNES.bin" "ZSNES Read Me=$TMP/ReadMe.cr:TEXT:ttxt"
-dd if=/dev/zero of="$TMP/v.dsk" bs=1024 count=8192 2>/dev/null
-(
-    export HOME="$TMP"
-    hformat -l Release "$TMP/v.dsk" >/dev/null
-    hcopy -r "$TMP/ZSNES-PPC.sit" :ZSNES-PPC.sit
-    hattrib -t 'SIT!' -c 'SIT!' :ZSNES-PPC.sit
-    hcopy -b :ZSNES-PPC.sit "$ROOT/builds/$MAC.sit.hqx"
-    humount >/dev/null
-)
+mac_package() { # APP.bin README.txt OUT
+    tr '\n' '\r' < "$2" > "$TMP/ReadMe.cr"
+    python3 "$ROOT/tools/mksit.py" "$TMP/ZSNES-PPC.sit" "ZSNES PPC" \
+        "ZSNES=$1" "ZSNES Read Me=$TMP/ReadMe.cr:TEXT:ttxt"
+    rm -f "$TMP/v.dsk"
+    dd if=/dev/zero of="$TMP/v.dsk" bs=1024 count=8192 2>/dev/null
+    (
+        export HOME="$TMP"
+        hformat -l Release "$TMP/v.dsk" >/dev/null
+        hcopy -r "$TMP/ZSNES-PPC.sit" :ZSNES-PPC.sit
+        hattrib -t 'SIT!' -c 'SIT!' :ZSNES-PPC.sit
+        hcopy -b :ZSNES-PPC.sit "$3"
+        humount >/dev/null
+    )
+}
+mac_package "$ROOT/build-macos9/ZSNES.bin" "$ROOT/macos9/ReadMe.txt" "$ROOT/builds/$MAC.sit.hqx"
+mac_package "$ROOT/build-macos9-carbon/ZSNES.bin" "$ROOT/macos9/ReadMe-MacOSX.txt" "$ROOT/builds/$MACOSX.sit.hqx"
 
 cd "$ROOT/builds"
-ls -l "$MAC.sit.hqx" "$LINUX.tar.gz"
-sha256sum "$MAC.sit.hqx" "$LINUX.tar.gz"
+ls -l "$MAC.sit.hqx" "$MACOSX.sit.hqx" "$LINUX.tar.gz"
+sha256sum "$MAC.sit.hqx" "$MACOSX.sit.hqx" "$LINUX.tar.gz"

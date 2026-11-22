@@ -9,7 +9,9 @@ runs on
 * **classic Mac OS 8.6 to 9.2.2**, as a native PowerPC application, with
   OpenGL video modes through Apple's OpenGL, full screen, and a Video menu
   (frame counter on Command-F, full screen on Shift-Command-F or
-  Command-Return); and
+  Command-Return);
+* **Mac OS X on PowerPC**, as a native Carbon application with the same
+  features, the menu bar and the Dock hidden in full screen; and
 * **Yellow Dog Linux 3** and other 32-bit PowerPC Linux of its age (Linux 2.4
   or 2.6, glibc 2.3, SDL 1.2, and theoretically newer 32-bit PowerPC Linux distros as well), with the same OpenGL modes through SDL 1.2 and
   the same shortcuts on Control.
@@ -17,7 +19,7 @@ runs on
 The emulator core is byte-order independent: on the test suite and 164 test
 ROMs a PowerPC build produces the same machine state, picture and sound as an
 x86 one, frame for frame. Sprite, Mode 7 and background drawing were made
-markedly faster for the slower machines. Ready-to-run builds for both systems are in
+markedly faster for the slower machines. Ready-to-run builds for all three are in
 [builds/](builds/); how to make them is under
 [Classic Mac OS](#classic-mac-os-mac-os-86-to-922-powerpc) and
 [32-bit PowerPC](#32-bit-powerpc-yellow-dog-linux-g3g4g5-ps3) below. The rest
@@ -268,9 +270,18 @@ uses, written on the Toolbox (a window and a 16-bit GWorld, GetKeys, the Sound
 Manager), and `macos9/posix.c` gives it Unix paths over the File Manager, `/`
 being the list of mounted disks. It links against InterfaceLib and
 AppearanceLib, and weakly against OpenGLLibrary (for the OpenGL video modes)
-and ControlStripLib (hidden in full screen), so it starts without either. There are no joysticks or netplay yet, and no Carbon build:
-Carbon needs Apple's Universal Interfaces, which Retro68 cannot redistribute.
+and ControlStripLib (hidden in full screen), so it starts without either. There are no joysticks or netplay yet.
 Pass `MACOS9_CFLAGS=-mcpu=7400` (or `750`) to tune for a G4 (or G3).
+
+`CARBON=1 tools/build-macos9.sh` builds the same frontend as a Carbon
+application, into `build-macos9-carbon/`, which Mac OS X runs natively. It
+needs Retro68 built with its Carbon libraries (leave out `--no-carbon`). The
+Carbon build links against CarbonLib alone, plus OpenGLLibrary weakly; it
+reaches window ports through Carbon's accessors, flushes each frame to Mac OS
+X's window buffer, and hides the menu bar and the Dock in full screen through
+`SetSystemUIMode`, found at run time in the Carbon framework. It also carries
+a Mac OS X icon family (`macos9/icns.r`, from `tools/mkicns.py`).
+`tools/package-release.sh` makes the three packages in `builds/`.
 
 ### Pull requests
 

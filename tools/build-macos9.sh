@@ -18,10 +18,16 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 RETRO68=${RETRO68:-$(dirname "$(dirname "$(command -v powerpc-apple-macos-gcc)")")}
 PATH=$RETRO68/bin:$PATH
 CC=powerpc-apple-macos-gcc
-OUT=${OUT:-$ROOT/build-macos9}
+if [ "${CARBON:-0}" = 1 ]; then OUT=${OUT:-$ROOT/build-macos9-carbon}; else OUT=${OUT:-$ROOT/build-macos9}; fi
 JOBS=${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
 
 command -v $CC >/dev/null || { echo "need Retro68's $CC: set RETRO68" >&2; exit 1; }
+
+# CARBON=1: the Carbon build, a native application on Mac OS X 10.1 to 10.4
+# (PowerPC; Rosetta on Intel Macs) that also runs on Mac OS 8.6 to 9.2.2
+# with CarbonLib. Retro68 builds its Carbon libraries unless given
+# --no-carbon.
+CARBON=${CARBON:-0}
 cd "$ROOT"
 
 # The core and the Unix frontend, as the Makefile lists them for an SDL 1.2
@@ -32,6 +38,11 @@ SRCS=$(make -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' z
 SRCS="$SRCS unix/gl_draw.c unix/glupload.c macos9/toolbox.c macos9/gl.c macos9/posix.c macos9/net_stub.c macos9/safelib.c"
 
 DEFS="-DZSNES_MACOS9 -D__UNIXSDL__ -DZSNES_SDL12 -D__OPENGL__ -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
+LDFLAGS=
+if [ "$CARBON" = 1 ]; then
+    DEFS="$DEFS -DTARGET_API_MAC_CARBON=1 -DZSNES_CARBON"
+    LDFLAGS=-carbon
+fi
 # Scheduled for the G3 and G4 (-mtune changes no instructions: it still
 # runs on a 601 or a 604).
 CFLAGS="-std=gnu11 -O2 -mtune=750 -fno-strict-aliasing -mminimal-toc \
@@ -96,14 +107,21 @@ rm -rf "$CS_TMP"
 
 echo "LINK ZSNES.xcoff"
 # shellcheck disable=SC2086
-$CC -o "$OUT/ZSNES.xcoff" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" \
-    -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak -lControlStripWeak
+if [ "$CARBON" = 1 ]; then
+    # CarbonLib has the Appearance Manager in it, and Mac OS X no Control
+    # Strip (the Dock is hidden through the system UI mode instead).
+    $CC $LDFLAGS -o "$OUT/ZSNES.xcoff" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" \
+        -lm -L"$OUT" -lOpenGLWeak
+else
+    $CC -o "$OUT/ZSNES.xcoff" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" \
+        -lm -lAppearanceLib -L"$OUT" -lOpenGLWeak -lControlStripWeak
+fi
 
 echo "PEF ZSNES.pef"
 MakePEF "$OUT/ZSNES.xcoff" -o "$OUT/ZSNES.pef"
 
 echo "REZ ZSNES"
-Rez "$ROOT/macos9/zsnes.r" -I"$RETRO68/powerpc-apple-macos/RIncludes" \
+Rez "$ROOT/macos9/zsnes.r" $(if [ "$CARBON" = 1 ]; then echo -DZSNES_CARBON; fi) -I"$RETRO68/powerpc-apple-macos/RIncludes" \
     -o "$OUT/ZSNES.bin" -t APPL -c ZSN2 --data "$OUT/ZSNES.pef"
 
 # Rez cannot set Finder flags; without "has bundle" the Finder ignores the

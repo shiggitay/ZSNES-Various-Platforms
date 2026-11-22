@@ -38,6 +38,54 @@
 #include "macextra.h"
 #include "macos9.h"
 
+/* The Carbon build (ZSNES_CARBON) runs natively on Mac OS X. Carbon hides
+   the Toolbox's structures - a window is not its port there, and a port's
+   fields are reached through accessors - and has none of the classic set-up
+   calls, desk accessories or Control Strip. Where the two differ, these
+   name the one thing both do. */
+#ifdef ZSNES_CARBON
+/* The few CoreFoundation calls used, which CarbonLib exports and these
+   headers do not declare. */
+typedef void const* CFTypeRef;
+typedef struct __CFString const* CFStringRef;
+typedef struct __CFURL const* CFURLRef;
+typedef struct __CFBundle* CFBundleRef;
+typedef struct __CFAllocator const* CFAllocatorRef;
+enum { kCFStringEncodingMacRoman_ = 0, kCFURLPOSIXPathStyle_ = 0 };
+CFStringRef CFStringCreateWithCString(CFAllocatorRef alloc, char const* cStr, UInt32 encoding);
+CFURLRef CFURLCreateWithFileSystemPath(CFAllocatorRef alloc, CFStringRef path, int style, Boolean isDirectory);
+CFBundleRef CFBundleCreate(CFAllocatorRef alloc, CFURLRef url);
+void* CFBundleGetFunctionPointerForName(CFBundleRef bundle, CFStringRef name);
+void CFRelease(CFTypeRef cf);
+pascal SInt32 GetPixRowBytes(PixMapHandle pm);
+#define WIN_PORT(w) GetWindowPort(w)
+#define SET_PORT_WIN(w) SetPortWindowPort(w)
+#define CHECK_ITEM CheckMenuItem
+static Rect port_rect(WindowPtr const w)
+{
+    Rect r;
+
+    GetPortBounds(GetWindowPort(w), &r);
+    return r;
+}
+static short pix_row_bytes(PixMapHandle const pm) { return (short)(GetPixRowBytes(pm) & 0x3FFF); }
+/* Carbon calls these headers leave out, as Universal Interfaces name them
+   (the Sound Manager's UPP functions are spelt CallBack there). */
+pascal void HideMenuBar(void);
+pascal void ShowMenuBar(void);
+enum { gestaltMenuMgrAttr_ = 'menu', gestaltMenuMgrAquaLayoutMask_ = 1 << 1 };
+pascal SndCallbackUPP NewSndCallBackUPP(SndCallbackProcPtr userRoutine);
+pascal void DisposeSndCallBackUPP(SndCallbackUPP userUPP);
+#define NewSndCallbackUPP NewSndCallBackUPP
+#define DisposeSndCallbackUPP DisposeSndCallBackUPP
+#else
+#define WIN_PORT(w) ((CGrafPtr)(w))
+#define SET_PORT_WIN(w) SetPort((GrafPtr)(w))
+#define CHECK_ITEM CheckItem
+static Rect port_rect(WindowPtr const w) { return ((GrafPtr)w)->portRect; }
+static short pix_row_bytes(PixMapHandle const pm) { return (short)((**pm).rowBytes & 0x3FFF); }
+#endif
+
 /* --- the Toolbox ---------------------------------------------------------- */
 
 static int toolbox_ready;
@@ -118,15 +166,19 @@ void macos9_init(void)
     if (toolbox_ready)
         return;
     toolbox_ready = 1;
+#ifndef ZSNES_CARBON
     MaxApplZone();
+#endif
     MoreMasters();
     MoreMasters();
+#ifndef ZSNES_CARBON
     InitGraf(&qd.thePort);
     InitFonts();
     InitWindows();
     InitMenus();
     TEInit();
     InitDialogs(NULL);
+#endif
     InitCursor();
     FlushEvents(everyEvent, 0);
     mbar_height = GetMBarHeight();
@@ -138,6 +190,25 @@ void macos9_init(void)
 
     pstr(s, "\x14");
     apple_menu = NewMenu(MENU_APPLE, s);
+#ifdef ZSNES_CARBON
+    pstr(s, "About ZSNES PPC");
+    AppendMenu(apple_menu, s);
+    InsertMenu(apple_menu, 0);
+    /* Mac OS X puts Quit in the application's own menu and sends a Quit
+       event for it; a File menu would hold nothing else. On Mac OS 9 with
+       CarbonLib there is no such menu, so File > Quit stays. */
+    {
+        long attr = 0;
+
+        if (Gestalt(gestaltMenuMgrAttr_, &attr) != noErr || !(attr & gestaltMenuMgrAquaLayoutMask_)) {
+            pstr(s, "File");
+            file_menu = NewMenu(MENU_FILE, s);
+            pstr(s, "Quit/Q");
+            AppendMenu(file_menu, s);
+            InsertMenu(file_menu, 0);
+        }
+    }
+#else
     pstr(s, "About ZSNES\xc9;(-");
     AppendMenu(apple_menu, s);
     AppendResMenu(apple_menu, 'DRVR');
@@ -147,6 +218,7 @@ void macos9_init(void)
     pstr(s, "Quit/Q");
     AppendMenu(file_menu, s);
     InsertMenu(file_menu, 0);
+#endif
     pstr(s, "Video");
     video_menu = NewMenu(MENU_VIDEO, s);
     pstr(s, "Show FPS/F");
@@ -165,7 +237,11 @@ static void about_box(void)
 {
     Str255 a, b;
 
-    pstr(a, "ZSNES 2 for Mac OS 8 and 9 (PowerPC)");
+#ifdef ZSNES_CARBON
+    pstr(a, "ZSNES PPC 1.0 for Mac OS X (PowerPC)");
+#else
+    pstr(a, "ZSNES PPC 1.0 for Mac OS 8.6 - 9.2.2 (PowerPC)");
+#endif
     pstr(b, "GPL 2. The emulator's own menu is on Escape; Command-Q quits.");
     ParamText(a, b, (ConstStr255Param) "\0", (ConstStr255Param) "\0");
     /* No ALRT resource of our own: the standard note alert with the text. */
@@ -445,6 +521,7 @@ static int menubar_hidden;
    of the old region could be the wrong size. The height is the
    one the system had when ZSNES started. */
 
+#ifndef ZSNES_CARBON
 static void menubar_strip(RgnHandle const rgn)
 {
     Rect r = (**GetMainDevice()).gdRect;
@@ -452,7 +529,71 @@ static void menubar_strip(RgnHandle const rgn)
     r.bottom = (short)(r.top + mbar_height);
     RectRgn(rgn, &r);
 }
+#endif
 
+#ifdef ZSNES_CARBON
+/* Mac OS X: the menu bar and the Dock both go, through the system UI mode
+   (Mac OS X 10.2 and later). SetSystemUIMode is in the Carbon framework but
+   not in CarbonLib's list, so it is found at run time and called through a
+   transition vector made for it. Without it (Mac OS X 10.1, or Mac OS 9 with
+   CarbonLib) HideMenuBar does the menu bar alone. */
+typedef OSStatus (*SetSystemUIModeFn)(UInt32 mode, UInt32 options);
+enum { kUIModeNormal_ = 0, kUIModeAllHidden_ = 3 };
+
+static SetSystemUIModeFn find_ui_mode(void)
+{
+    static int tried;
+    static UInt32 glue[2]; /* code address, TOC: a CFM transition vector */
+    static SetSystemUIModeFn fn;
+
+    if (!tried) {
+        CFStringRef path, name;
+        CFURLRef url = NULL;
+        CFBundleRef carbon = NULL;
+        void* p = NULL;
+
+        tried = 1;
+        path = CFStringCreateWithCString(NULL, "/System/Library/Frameworks/Carbon.framework", kCFStringEncodingMacRoman_);
+        name = CFStringCreateWithCString(NULL, "SetSystemUIMode", kCFStringEncodingMacRoman_);
+        if (path) {
+            url = CFURLCreateWithFileSystemPath(NULL, path, kCFURLPOSIXPathStyle_, true);
+            CFRelease(path);
+        }
+        if (url) {
+            carbon = CFBundleCreate(NULL, url); /* kept: the function lives in it */
+            CFRelease(url);
+        }
+        if (carbon && name)
+            p = CFBundleGetFunctionPointerForName(carbon, name);
+        if (name)
+            CFRelease(name);
+        if (p) {
+            glue[0] = (UInt32)p;
+            glue[1] = 0;
+            fn = (SetSystemUIModeFn)(void*)glue;
+        }
+    }
+    return fn;
+}
+
+static void hide_menubar(int const hide)
+{
+    SetSystemUIModeFn const ui = find_ui_mode();
+
+    if (hide == menubar_hidden)
+        return;
+    menubar_hidden = hide;
+    if (ui) {
+        ui(hide ? kUIModeAllHidden_ : kUIModeNormal_, 0);
+    } else if (hide) {
+        HideMenuBar();
+    } else {
+        ShowMenuBar();
+    }
+    if (!hide)
+        DrawMenuBar();
+}
+#else
 /* The Control Strip goes with the menu bar, and comes back only if it was
    showing. ControlStripLib is imported weakly: a Mac with the strip turned
    off still runs ZSNES. */
@@ -503,6 +644,8 @@ static void hide_menubar(int const hide)
     DisposeRgn(strip);
 }
 
+#endif
+
 static void free_window(struct SDL_Window* const w)
 {
     if (w->win) {
@@ -518,8 +661,26 @@ static void free_window(struct SDL_Window* const w)
     w->pending = NULL;
 }
 
-static short port_w(WindowPtr const win) { return (short)(((GrafPtr)win)->portRect.right - ((GrafPtr)win)->portRect.left); }
-static short port_h(WindowPtr const win) { return (short)(((GrafPtr)win)->portRect.bottom - ((GrafPtr)win)->portRect.top); }
+static short port_w(WindowPtr const win)
+{
+    Rect const r = port_rect(win);
+
+    return (short)(r.right - r.left);
+}
+
+static short port_h(WindowPtr const win)
+{
+    Rect const r = port_rect(win);
+
+    return (short)(r.bottom - r.top);
+}
+
+static void erase_window(WindowPtr const win)
+{
+    Rect const r = port_rect(win);
+
+    EraseRect(&r);
+}
 
 /* Where the picture goes: the whole window, or centred in a full-screen one. */
 static void place_picture(struct SDL_Window* const w)
@@ -606,15 +767,15 @@ static bool make_window(struct SDL_Window* const w)
         set_error("Could not open a window");
         return false;
     }
-    SetPort((GrafPtr)w->win);
+    SET_PORT_WIN(w->win);
     {
         RGBColor black = { 0, 0, 0 };
         RGBBackColor(&black);
-        EraseRect(&((GrafPtr)w->win)->portRect);
+        erase_window(w->win);
     }
     place_picture(w);
     if (w->opengl && gl_port_ctx)
-        macos9_gl_attach(w->win);
+        macos9_gl_attach(WIN_PORT(w->win));
     /* SDL3 reports a full-screen window's real size this way once it is up,
        and the frontend sizes its OpenGL viewport from that. Without it the
        viewport kept the mode's 640x480 whenever the video restarted with the
@@ -734,15 +895,23 @@ SDL_Surface* zs3_GetWindowSurface(SDL_Window* const win)
 static void present(struct SDL_Window* const win)
 {
     PixMapHandle const pm = GetGWorldPixMap(win->gw);
-    GrafPtr const port = (GrafPtr)win->win;
+    CGrafPtr const port = WIN_PORT(win->win);
     Rect src;
     RGBColor const black = { 0, 0, 0 }, white = { 0xFFFF, 0xFFFF, 0xFFFF };
 
     SetRect(&src, 0, 0, (short)(win->w * win->scale), (short)(win->h * win->scale));
-    SetPort(port);
+    SET_PORT_WIN(win->win);
     RGBForeColor(&black);
     RGBBackColor(&white);
-    CopyBits((BitMap*)*pm, &port->portBits, &src, &win->pic, srcCopy, NULL);
+#ifdef ZSNES_CARBON
+    CopyBits((BitMap*)*pm, GetPortBitMapForCopyBits(port), &src, &win->pic, srcCopy, NULL);
+    /* Mac OS X buffers each window and puts the buffer on the screen when
+       the application next waits for events; ZSNES waits only a few times a
+       second, so each frame goes up here. */
+    QDFlushPortBuffer(port, NULL);
+#else
+    CopyBits((BitMap*)*pm, &((GrafPtr)port)->portBits, &src, &win->pic, srcCopy, NULL);
+#endif
     RGBBackColor(&black);
 }
 
@@ -823,7 +992,7 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
     win->pending = NULL;
     pm = GetGWorldPixMap(win->gw);
     base = (Uint8*)GetPixBaseAddr(pm);
-    rb = (**pm).rowBytes & 0x3FFF;
+    rb = pix_row_bytes(pm);
     s = win->scale;
     for (y = 0; y < win->h && y < src->h; y++) {
         Uint16 const* const in = (Uint16 const*)((Uint8 const*)src->pixels + (size_t)y * src->pitch);
@@ -855,7 +1024,7 @@ SDL_GLContext zs3_GL_CreateContext(SDL_Window* const win)
 {
     if (!win || !win->win || !win->opengl)
         return NULL;
-    gl_port_ctx = macos9_gl_create(win->win, mac_vsync);
+    gl_port_ctx = macos9_gl_create(WIN_PORT(win->win), mac_vsync);
     if (!gl_port_ctx)
         set_error("No accelerated OpenGL for this screen");
     return gl_port_ctx;
@@ -928,7 +1097,8 @@ static Point global_mouse(void)
     GrafPtr saved;
 
     GetPort(&saved);
-    SetPort(the_window.win ? (GrafPtr)the_window.win : saved);
+    if (the_window.win)
+        SET_PORT_WIN(the_window.win);
     GetMouse(&p);
     LocalToGlobal(&p);
     SetPort(saved);
@@ -1127,7 +1297,9 @@ static void do_menu(long const choice)
         } else {
             Str255 name;
             GetMenuItemText(apple_menu, item, name);
+#ifndef ZSNES_CARBON
             OpenDeskAcc(name);
+#endif
         }
     } else if (menu == MENU_FILE && item == 1) {
         quit_requested = 1;
@@ -1172,15 +1344,23 @@ static void handle(EventRecord* const ev)
         switch (part) {
         case inMenuBar:
             show_cursor();
-            CheckItem(video_menu, 1, FPSOn != 0);
-            CheckItem(video_menu, 3, mac_vsync != 0);
+            CHECK_ITEM(video_menu, 1, FPSOn != 0);
+            CHECK_ITEM(video_menu, 3, mac_vsync != 0);
             do_menu(MenuSelect(ev->where));
             break;
+#ifndef ZSNES_CARBON
         case inSysWindow:
             SystemClick(ev, w);
             break;
+#endif
         case inDrag: {
+#ifdef ZSNES_CARBON
+            Rect bounds;
+
+            GetRegionBounds(GetGrayRgn(), &bounds);
+#else
             Rect bounds = qd.screenBits.bounds;
+#endif
             DragWindow(w, ev->where, &bounds);
             macos9_gl_update();
             break;
@@ -1201,7 +1381,7 @@ static void handle(EventRecord* const ev)
         case inZoomIn:
         case inZoomOut:
             if (w == the_window.win && TrackBox(w, ev->where, part)) {
-                SetPort((GrafPtr)w);
+                SET_PORT_WIN(w);
                 ZoomWindow(w, part, true);
                 window_resized();
             }
@@ -1252,7 +1432,7 @@ static void handle(EventRecord* const ev)
             if (ev->what == keyDown) {
                 long choice;
 
-                CheckItem(video_menu, 1, FPSOn != 0);
+                CHECK_ITEM(video_menu, 1, FPSOn != 0);
                 choice = MenuKey(c);
                 if (choice >> 16)
                     do_menu(choice);
@@ -1272,7 +1452,7 @@ static void handle(EventRecord* const ev)
 
         BeginUpdate(w);
         if (w == the_window.win && the_window.gw) {
-            EraseRect(&((GrafPtr)w)->portRect);
+            erase_window(w);
             present(&the_window);
         }
         EndUpdate(w);
@@ -1331,9 +1511,12 @@ void zs3_PumpEvents(void)
         static Point last;
         static int have_last;
 
-        SetPort((GrafPtr)the_window.win);
+        Rect pr;
+
+        SET_PORT_WIN(the_window.win);
         GetMouse(&p);
-        update_cursor(p, PtInRect(p, &((GrafPtr)the_window.win)->portRect) && FrontWindow() == the_window.win);
+        pr = port_rect(the_window.win);
+        update_cursor(p, PtInRect(p, &pr) && FrontWindow() == the_window.win);
         /* Into the picture's own pixels: it may sit centred and doubled. */
         if (!the_window.opengl) {
             p.h = (short)((p.h - the_window.pic.left) / the_window.scale);
@@ -1497,12 +1680,14 @@ static void queue_buffer(struct SDL_AudioStream* const s, int const i)
     unsigned const t = s->tail % RING_BYTES;
     SndCommand c;
 
+    __sync_synchronize(); /* see the samples up to head before reading them */
     if (t + n <= RING_BYTES) {
         BlockMoveData(s->ring + t, out, (long)n);
     } else {
         BlockMoveData(s->ring + t, out, (long)(RING_BYTES - t));
         BlockMoveData(s->ring, out + (RING_BYTES - t), (long)(n - (RING_BYTES - t)));
     }
+    __sync_synchronize(); /* read the samples before giving their room back */
     s->tail += n;
     if (n < want)
         memset(out + n, 0, want - n);
@@ -1627,7 +1812,10 @@ static void ring_put(struct SDL_AudioStream* const s, Uint8 const* const buf, un
     first = RING_BYTES - h < n ? RING_BYTES - h : n;
     memcpy(s->ring + h, buf, first);
     memcpy(s->ring, buf + first, n - first);
-    s->head += n; /* after the copy: the callback reads up to head */
+    /* After the copy: the callback reads up to head, and on Mac OS X it
+       runs on a thread of its own, perhaps on another processor. */
+    __sync_synchronize();
+    s->head += n;
 }
 
 bool zs3_PutAudioStreamData(SDL_AudioStream* const s, void const* const buf, int const len)
