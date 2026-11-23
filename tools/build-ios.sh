@@ -37,13 +37,13 @@ chmod +x "$OUT/cc"
 CC=$OUT/cc
 
 # 1. SDL3, static, for the device.
-if [ ! -f "$OUT/sdl/lib/libSDL3.a" ]; then
+if [ ! -f "$OUT/sdl3-ios/lib/libSDL3.a" ]; then
     [ -d "$OUT/SDL" ] || git clone --depth 1 --branch "$SDL_TAG" https://github.com/libsdl-org/SDL.git "$OUT/SDL"
     cmake -S "$OUT/SDL" -B "$OUT/SDL/build" \
         -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="$MINIOS" -DCMAKE_BUILD_TYPE=Release \
         -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST_LIBRARY=OFF -DSDL_EXAMPLES=OFF \
-        -DCMAKE_INSTALL_PREFIX="$OUT/sdl"
+        -DCMAKE_INSTALL_PREFIX="$OUT/sdl3-ios"
     cmake --build "$OUT/SDL/build" --parallel "$JOBS"
     cmake --install "$OUT/SDL/build"
 fi
@@ -53,15 +53,18 @@ fi
 SRCS=$("$MAKE" -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' zsnes-print-srcs \
     ARCH=LINUX CPU=arm64 WITH_SDL=yes WITH_OPENGL=yes WITH_PNG= WITH_AO= WITH_PIPEWIRE= \
     BUILD_DIR="$OUT/unused" |
-    tr ' ' '\n' | grep -v -e '^unix/gl_draw.c$' -e '^unix/safelib.c$' | tr '\n' ' ')
+    tr ' ' '\n' | grep -E '^[A-Za-z0-9_/.-]+\.c$' |
+    grep -v -e '^unix/gl_draw.c$' -e '^unix/safelib.c$' -e '^unix/sdl_render.c$' | tr '\n' ' ')
 [ -n "$SRCS" ] || { echo "could not list the sources (GNU make 3.82 or later is needed)" >&2; exit 1; }
-SRCS="$SRCS unix/ios.c unix/ios_glstub.c macos9/safelib.c"
+# (The Makefile also prints notes on that line, such as finding no GL/gl.h for
+# a Linux target here; only the .c files are kept.)
+SRCS="$SRCS unix/sdl_render.c unix/ios.c unix/ios_glstub.c macos9/safelib.c"
 
 DEFS="-DZSNES_IOS -D__UNIXSDL__ -D__OPENGL__ -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
 CFLAGS="-std=gnu11 -O2 -fno-strict-aliasing -Wall -Wno-unused-parameter -Wno-unused-function \
  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-deprecated-declarations \
  -Werror=implicit-function-declaration \
- -I$OUT -I$ROOT/unix/glcompat -I$OUT/sdl/include"
+ -I$OUT -I$ROOT/unix/glcompat -I$OUT/sdl3-ios/include"
 
 # 3. The configuration parsers, which parsegen.py writes and compiles.
 for p in cfg input md; do
@@ -95,7 +98,7 @@ rm -rf "$OUT/Payload"
 mkdir -p "$APP"
 OBJS=
 for s in $SRCS; do OBJS="$OBJS $OUT/obj/${s%.c}.o"; done
-SDL_LIBS=$(PKG_CONFIG_PATH="$OUT/sdl/lib/pkgconfig" pkg-config --static --libs sdl3)
+SDL_LIBS=$(PKG_CONFIG_PATH="$OUT/sdl3-ios/lib/pkgconfig" pkg-config --static --libs sdl3)
 echo "LINK ZSNES"
 # shellcheck disable=SC2086
 "$CC" -o "$APP/ZSNES" $OBJS "$OUT/cfg.o" "$OUT/input.o" "$OUT/md.o" $SDL_LIBS -lz -lm -dead_strip

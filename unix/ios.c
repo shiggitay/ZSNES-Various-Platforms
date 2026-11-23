@@ -13,6 +13,8 @@
 #include "input.h"          /* player 1's keys */
 
 extern unsigned char GUIOn, GUIOn2;
+extern unsigned char FPSOn;     /* video/procvid.c */
+extern unsigned char frameskip; /* 0 = automatic; the counter needs it */
 void SaveSramData(void);
 void GUISaveVars(void);
 
@@ -52,7 +54,7 @@ void ios_background(void)
 
 /* --- layout --------------------------------------------------------------- */
 
-enum { C_DPAD, C_A, C_B, C_X, C_Y, C_L, C_R, C_SELECT, C_START, C_MENU, C_COUNT };
+enum { C_DPAD, C_A, C_B, C_X, C_Y, C_L, C_R, C_SELECT, C_START, C_MENU, C_FPS, C_COUNT };
 
 typedef struct {
     float x, y;   /* centre, output pixels */
@@ -129,7 +131,8 @@ static void layout(SDL_Renderer* const r)
     place(&ctl[C_R], out_w - ir - 0.13f * u, 0.09f * u, 0.11f * u, 0.045f * u, 0, "R");
     place(&ctl[C_SELECT], il + 0.13f * u, out_h - ib - 0.07f * u, 0.085f * u, 0.035f * u, 0, "SELECT");
     place(&ctl[C_START], out_w - ir - 0.13f * u, out_h - ib - 0.07f * u, 0.085f * u, 0.035f * u, 0, "START");
-    place(&ctl[C_MENU], out_w / 2, 0.045f * u, 0.07f * u, 0.03f * u, 0, "MENU");
+    place(&ctl[C_MENU], out_w / 2 - 0.085f * u, 0.045f * u, 0.07f * u, 0.03f * u, 0, "MENU");
+    place(&ctl[C_FPS], out_w / 2 + 0.085f * u, 0.045f * u, 0.07f * u, 0.03f * u, 0, "FPS");
 }
 
 void ios_picture_rect(SDL_Renderer* const r, SDL_FRect* const dst)
@@ -227,6 +230,8 @@ static int control_at(float const x, float const y)
 
     if (hit(&ctl[C_MENU], x, y, 1.3f))
         return C_MENU;
+    if (hit(&ctl[C_FPS], x, y, 1.3f))
+        return C_FPS;
     if (GUIOn || GUIOn2 || !overlay_shown())
         return C_COUNT;
     if (hit(&ctl[C_DPAD], x, y, 1.35f))
@@ -308,6 +313,13 @@ int ios_touch(SDL_Event const* const e, float* const fx, float* const fy, int* c
             press_menu(1);
             return 0;
         }
+        if (finger[slot].control == C_FPS) {
+            /* The frame counter, as Command-F or Ctrl-F do on the other
+               ports. ZSNES counts frames only while it picks the frameskip. */
+            frameskip = 0;
+            FPSOn ^= 1;
+            return 0;
+        }
         if (finger[slot].control < C_COUNT) {
             touch_state();
             return 0;
@@ -338,6 +350,8 @@ int ios_touch(SDL_Event const* const e, float* const fx, float* const fy, int* c
             press_menu(0);
             return 0;
         }
+        if (c == C_FPS)
+            return 0;
         if (c < C_COUNT) {
             touch_state();
             return 0;
@@ -466,6 +480,8 @@ void ios_draw_overlay(SDL_Renderer* const r)
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     fill_pill(r, &ctl[C_MENU], idle);
     label(r, "MENU", ctl[C_MENU].x, ctl[C_MENU].y, ctl[C_MENU].ry * 0.9f);
+    fill_pill(r, &ctl[C_FPS], FPSOn ? lit : idle);
+    label(r, "FPS", ctl[C_FPS].x, ctl[C_FPS].y, ctl[C_FPS].ry * 0.9f);
     if (GUIOn || GUIOn2 || !overlay_shown()) {
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
         return;

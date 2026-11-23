@@ -548,6 +548,19 @@ int Main_Proc(void)
                 SwitchFullScreen();
                 break;
             }
+#ifdef ZSNES_IOS
+            /* Ctrl-F, the frame counter, as on the other ZSNES PPC ports
+               (the on-screen FPS button does the same). */
+            if (event.key.key == SDLK_F && (event.key.mod & SDL_KMOD_CTRL)) {
+                extern u1 FPSOn, frameskip;
+
+                if (!event.key.repeat) {
+                    frameskip = 0;
+                    FPSOn ^= 1;
+                }
+                break;
+            }
+#endif
             if (event.key.key == SDLK_LSHIFT || event.key.key == SDLK_RSHIFT) {
                 shiftptr = 1;
             }
