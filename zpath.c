@@ -483,7 +483,12 @@ int system_dir(const char* path, const char* command)
 {
     int ret_val;
     chdir_dir(path);
+#ifdef ZSNES_IOS
+    (void)command;
+    ret_val = -1; /* iOS runs no other programs */
+#else
     ret_val = system(command);
+#endif
     IGNORE_RESULT(chdir(ZStartPath));
     return (ret_val);
 }

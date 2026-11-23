@@ -11,6 +11,7 @@ on:
       - "ios/**"
       - "unix/**"
       - "main.c"
+      - "zpath.c"
       - "gblhdr.h"
       - "ver.c"
   workflow_dispatch:
