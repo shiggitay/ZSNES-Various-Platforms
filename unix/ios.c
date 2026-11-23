@@ -227,6 +227,8 @@ static struct {
     int control; /* C_COUNT: pointing at the menus */
 } finger[FINGERS];
 
+/* With a game controller connected (Bluetooth: MFi, Xbox, PlayStation)
+   nothing is drawn over the game; it comes back when the controller goes. */
 static int overlay_shown(void) { return !SDL_HasGamepad(); }
 
 static int hit(Control const* const c, float const x, float const y, float const slack)
@@ -240,11 +242,18 @@ static int control_at(float const x, float const y)
 {
     int c;
 
+    if (!overlay_shown()) {
+        /* The controller's Start+Select (or Home) opens the menu; a tap at
+           the top middle, where MENU was, still does as well. */
+        Control const* const m = &ctl[C_MENU];
+
+        return y < m->y + 2 * m->ry && x > out_w * 0.35f && x < out_w * 0.65f ? C_MENU : C_COUNT;
+    }
     if (hit(&ctl[C_MENU], x, y, 1.3f))
         return C_MENU;
     if (hit(&ctl[C_FPS], x, y, 1.3f))
         return C_FPS;
-    if (GUIOn || GUIOn2 || !overlay_shown())
+    if (GUIOn || GUIOn2)
         return C_COUNT;
     if (hit(&ctl[C_DPAD], x, y, 1.35f))
         return C_DPAD;
@@ -409,6 +418,33 @@ void ios_gamepad_button(int const button, int const down)
         dirs[SRC_PAD] |= d;
     else
         dirs[SRC_PAD] &= (unsigned char)~d;
+
+    /* Start+Select together: the ZSNES menu, held as Esc until either is
+       let go, and neither reaches the game meanwhile. A controller's Home
+       button may be kept by iOS for itself, so this is the sure way. */
+    {
+        static unsigned char start, select, chord;
+
+        if (button == SDL_GAMEPAD_BUTTON_START)
+            start = (unsigned char)(down != 0);
+        if (button == SDL_GAMEPAD_BUTTON_BACK)
+            select = (unsigned char)(down != 0);
+        if (start && select && !chord) {
+            chord = 1;
+            press_menu(1);
+        } else if (chord && !(start && select)) {
+            chord = 0;
+            press_menu(0);
+        }
+        if (chord || (start && select)) {
+            held[SRC_PAD][C_START] = 0;
+            held[SRC_PAD][C_SELECT] = 0;
+        }
+        if (chord && !start)
+            held[SRC_PAD][C_SELECT] = 0; /* until both are up again */
+        if (chord && !select)
+            held[SRC_PAD][C_START] = 0;
+    }
     refresh();
 }
 
@@ -489,12 +525,14 @@ void ios_draw_overlay(SDL_Renderer* const r)
     int c;
 
     layout(r);
+    if (!overlay_shown())
+        return; /* a controller is connected */
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     fill_pill(r, &ctl[C_MENU], idle);
     label(r, "MENU", ctl[C_MENU].x, ctl[C_MENU].y, ctl[C_MENU].ry * 0.9f);
     fill_pill(r, &ctl[C_FPS], FPSOn ? lit : idle);
     label(r, "FPS", ctl[C_FPS].x, ctl[C_FPS].y, ctl[C_FPS].ry * 0.9f);
-    if (GUIOn || GUIOn2 || !overlay_shown()) {
+    if (GUIOn || GUIOn2) {
         SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
         return;
     }

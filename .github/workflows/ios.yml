@@ -4,6 +4,7 @@ name: iOS
 
 on:
   push:
+    branches: [main]
     paths:
       - ".github/workflows/ios.yml"
       - "tools/build-ios.sh"
