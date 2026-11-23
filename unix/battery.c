@@ -234,7 +234,7 @@ int CheckBatteryPercent(void)
 
 /* Battery on macOS, by drizztbsd and Nach. */
 
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && !defined(ZSNES_IOS) /* IOKit is private on iOS */
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/ps/IOPSkeys.h>
 #include <IOKit/ps/IOPowerSources.h>

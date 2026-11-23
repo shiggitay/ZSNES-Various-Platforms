@@ -1,6 +1,9 @@
 #include "../gblhdr.h"
 #include "../zclock.h"
 #include "gl_draw.h"
+#ifdef ZSNES_IOS
+#include "ios.h"
+#endif
 #include "lib.h"
 #include "sw_draw.h"
 
@@ -216,7 +219,9 @@ void PlaceWindowOnMonitor(SDL_Window* const win)
     /* Text entry (the file browser, netplay fields) reads characters from
        SDL_EVENT_TEXT_INPUT so the keyboard layout decides them - otherwise a
        shifted symbol like the Norwegian '/' (shift-7) is unreachable. */
+#ifndef ZSNES_IOS /* there it would bring up the on-screen keyboard */
     SDL_StartTextInput(win);
+#endif
 }
 SDL_Surface* surface;
 int SurfaceLocking = 0;
@@ -242,6 +247,8 @@ static int UseLegacyGL(void)
     if (cached < 0) {
 #if defined(ZSNES_MACOS9) || defined(ZSNES_SDL12)
         cached = 1; /* no SDL_Renderer there: OpenGL is AGL's or SDL 1.2's */
+#elif defined(ZSNES_IOS)
+        cached = 0; /* no desktop OpenGL there (unix/ios_glstub.c) */
 #else
         char const* e = getenv("ZSNES_LEGACY_GL");
         cached = (e && *e == '1') ? 1 : 0;
@@ -626,6 +633,35 @@ int Main_Proc(void)
             }
             break;
 
+#ifdef ZSNES_IOS
+        case SDL_EVENT_FINGER_DOWN:
+        case SDL_EVENT_FINGER_MOTION:
+        case SDL_EVENT_FINGER_UP:
+        case SDL_EVENT_FINGER_CANCELED: {
+            /* Fingers on the on-screen controller press its buttons
+               (unix/ios.c); the others point and click in the menus, where
+               they land on the picture. */
+            float fx, fy;
+            int phase;
+
+            if (ios_touch(&event, &fx, &fy, &phase)) {
+                MouseX = MouseMinX + (int)(fx * (float)(MouseMaxX - MouseMinX));
+                MouseY = MouseMinY + (int)(fy * (float)(MouseMaxY - MouseMinY));
+                if (phase == 1) {
+                    MouseButton |= 1;
+                    MouseButtonPressed |= 1;
+                } else if (phase == 0) {
+                    MouseButton &= ~1;
+                }
+            }
+            break;
+        }
+        case SDL_EVENT_WILL_ENTER_BACKGROUND:
+        case SDL_EVENT_TERMINATING:
+            ios_background();
+            break;
+#endif
+
         case SDL_EVENT_MOUSE_WHEEL:
             if (event.wheel.y > 0)
                 ProcessKeyBuf(SDLK_UP);
@@ -787,6 +823,9 @@ int Main_Proc(void)
         }
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
             int idx = joystick_index_from_id(event.gbutton.which);
+#ifdef ZSNES_IOS
+            ios_gamepad_button(event.gbutton.button, 1);
+#endif
             if (idx < 0 || !GamepadInput[idx]
                 || event.gbutton.button >= GAMEPAD_BUTTON_BINDING_COUNT) {
                 break;
@@ -800,6 +839,9 @@ int Main_Proc(void)
         }
 
         case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+#ifdef ZSNES_IOS
+            ios_gamepad_button(event.gbutton.button, 0);
+#endif
             int idx = joystick_index_from_id(event.gbutton.which);
             if (idx < 0 || !GamepadInput[idx]
                 || event.gbutton.button >= GAMEPAD_BUTTON_BINDING_COUNT) {
@@ -814,6 +856,9 @@ int Main_Proc(void)
         }
 
         case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+#ifdef ZSNES_IOS
+            ios_gamepad_axis(event.gaxis.axis, event.gaxis.value);
+#endif
             int idx = joystick_index_from_id(event.gaxis.which);
             if (idx < 0 || !GamepadInput[idx]) {
                 break;
@@ -1907,6 +1952,13 @@ void initwinvideo(void)
     static uint32_t lastGoodMode = ~0u;
     uint32_t newmode = 0;
 
+#ifdef ZSNES_IOS
+    /* Only the accelerated (O) modes there: they draw through SDL's Metal
+       renderer, which places the picture and the on-screen controller. */
+    if (cvidmode < 5) {
+        cvidmode = 10;
+    }
+#endif
     init_hqNx();
 
     if ((CurMode != cvidmode) || (prevNTSCMode != NTSCFilter) || (changeRes) || (prevKeep4_3Ratio != Keep4_3Ratio)

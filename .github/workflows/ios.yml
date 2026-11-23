@@ -1,0 +1,34 @@
+# Builds the iOS app (tools/build-ios.sh) on a Mac runner, as an unsigned
+# .ipa uploaded with the run (Actions tab > the run > Artifacts).
+name: iOS
+
+on:
+  push:
+    paths:
+      - ".github/workflows/ios.yml"
+      - "tools/build-ios.sh"
+      - "ios/**"
+      - "unix/**"
+      - "main.c"
+      - "gblhdr.h"
+      - "ver.c"
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install tools
+        run: |
+          brew untap aws/tap || true
+          brew install make pkgconf || true
+          cmake --version
+          xcodebuild -version
+      - name: Build
+        run: tools/build-ios.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zsnes-ios
+          path: build-ios/zsnes-ios.ipa
+          if-no-files-found: error

@@ -6,6 +6,9 @@ char const* VERSION_DATE = __DATE__;
 #if defined(__WIN32__) || defined(__ZSNES_PLATFORM_WINDOWS__)
 char const* VERSION_PORT = "WIN";
 char const VERSION_PLATFORM[] = "Windows";
+#elif defined(ZSNES_IOS)
+char const* VERSION_PORT = "SDL - iOS";
+char const VERSION_PLATFORM[] = "iOS";
 #elif defined(__ZSNES_PLATFORM_DARWIN__)
 char const* VERSION_PORT = "SDL - Darwin";
 char const VERSION_PLATFORM[] = "macOS";

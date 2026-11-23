@@ -42,7 +42,7 @@
 // opengl stuff
 
 #ifdef __OPENGL__
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(ZSNES_IOS) /* iOS: unix/glcompat, stubbed */
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>

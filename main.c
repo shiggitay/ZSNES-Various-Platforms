@@ -956,6 +956,13 @@ int main(int const argc, char** const argv)
         }
     }
 
+#ifdef ZSNES_IOS
+    {
+        void ios_setup(void);
+
+        ios_setup(); /* folders and hints, before the paths are read */
+    }
+#endif
     if (init_paths(*argv)) {
 #ifdef __UNIXSDL__
         /* Before any SDL video init, so the SDL_HINT it sets is read in time. */

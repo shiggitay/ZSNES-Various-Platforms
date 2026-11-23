@@ -19,6 +19,9 @@
 #include "cfg.h"
 #include "sdllink.h"
 #include <math.h>
+#ifdef ZSNES_IOS
+#include "ios.h"
+#endif
 #if __has_include(<vulkan/vulkan.h>)
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
@@ -642,7 +645,17 @@ static void sr_show(SDL_Texture* const tex, int const w, int const h)
     SDL_FRect const src = { 0.0f, 0.0f, (float)w, (float)h };
 
     SDL_RenderClear(sr_renderer);
+#ifdef ZSNES_IOS
+    {
+        SDL_FRect dst;
+
+        ios_picture_rect(sr_renderer, &dst);
+        SDL_RenderTexture(sr_renderer, tex, &src, &dst);
+        ios_draw_overlay(sr_renderer);
+    }
+#else
     SDL_RenderTexture(sr_renderer, tex, &src, NULL);
+#endif
 #ifdef ZSNES_DEBUG_HOOKS
     /* Read back before presenting: afterwards the back buffer is the
        driver's business, not ours. */
