@@ -17,7 +17,14 @@ on:
 
 jobs:
   ios:
-    runs-on: macos-latest
+    # Mac runners can sit unclaimed for a while when GitHub is short of
+    # them; an Intel and an Apple silicon one are both asked for, and either
+    # makes the same .ipa.
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
       - name: Install tools
@@ -30,6 +37,6 @@ jobs:
         run: tools/build-ios.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: zsnes-ios
+          name: zsnes-ios-${{ matrix.runner }}
           path: build-ios/zsnes-ios.ipa
           if-no-files-found: error
