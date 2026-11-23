@@ -34,13 +34,17 @@ On screen, while a game runs:
 In the menus a tap is a click. The buttons press player 1's keys, so a
 change in Config > Input applies to them too.
 
-A Bluetooth game controller (MFi, Xbox or PlayStation) works as player 1
-as soon as it is connected, and the on-screen controls hide until it is
-disconnected: A/B/X/Y by position as on a SNES pad, the shoulder buttons as
-L and R, Menu/Options as Start, View/Share as Select, and the d-pad or left
-stick. Start and Select together open the ZSNES menu (so does the Home
-button, where iOS lets it through, and a tap at the top middle of the
-screen). A Bluetooth keyboard works as on a computer: the arrow
+A Bluetooth game controller works as player 1 as soon as it is connected,
+and the on-screen controls hide until it is disconnected:
+- Nintendo Switch Pro Controller (iOS 16 and later): A, B, X and Y are the
+  SNES's own, letters and places alike; L and R are L and R; + is Start,
+  - is Select.
+- Xbox, PlayStation and MFi controllers: the face buttons by position, as
+  on a SNES pad (bottom B, right A, left Y, top X); the shoulder buttons
+  are L and R; Menu/Options is Start, View/Share is Select.
+The d-pad or the left stick moves. Start and Select together (+ and - on a
+Switch Pro Controller) open the ZSNES menu; so does the Home button, where
+iOS lets it through, and a tap at the top middle of the screen. A Bluetooth keyboard works as on a computer: the arrow
 keys, X = A, Z = B, S = X, A = Y, D/C = L/R, Return = Start, Right Shift =
 Select, Esc for the menu, Ctrl-F for the frame counter.
 

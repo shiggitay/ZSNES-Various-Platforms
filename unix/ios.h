@@ -21,9 +21,9 @@ void ios_draw_overlay(SDL_Renderer* r);
    (0 to 1 across and down) and *phase 1 for down, 0 for up, -1 for a move. */
 int ios_touch(SDL_Event const* e, float* fx, float* fy, int* phase);
 
-/* A game controller (MFi, Xbox, PlayStation) as player 1, by button
-   position, with no setting up; Config > Input can still bind it as well. */
-void ios_gamepad_button(int button, int down);
+/* A game controller (Switch Pro, Xbox, PlayStation, MFi) as player 1 with
+   no setting up; Config > Input can still bind it as well. */
+void ios_gamepad_button(SDL_JoystickID which, int button, int down);
 void ios_gamepad_axis(int axis, int value);
 
 /* The app is going to the background, where iOS may end it unasked. */

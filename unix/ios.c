@@ -391,16 +391,56 @@ int ios_touch(SDL_Event const* const e, float* const fx, float* const fy, int* c
 
 /* --- game controllers ----------------------------------------------------- */
 
-void ios_gamepad_button(int const button, int const down)
+/* The face buttons. A Nintendo controller (a Switch Pro Controller, Joy-Con)
+   has the SNES's letters in the SNES's places, so it goes by its letters,
+   which keeps A as A however the system reports the buttons' positions.
+   Any other (Xbox, PlayStation, MFi) goes by position, as a SNES pad's
+   buttons sit: bottom B, right A, left Y, top X. */
+static int face_button(SDL_JoystickID const which, int const button)
+{
+    SDL_Gamepad* const pad = SDL_GetGamepadFromID(which);
+
+    if (pad) {
+        switch (SDL_GetGamepadType(pad)) {
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+            switch (SDL_GetGamepadButtonLabel(pad, (SDL_GamepadButton)button)) {
+            case SDL_GAMEPAD_BUTTON_LABEL_A: return C_A;
+            case SDL_GAMEPAD_BUTTON_LABEL_B: return C_B;
+            case SDL_GAMEPAD_BUTTON_LABEL_X: return C_X;
+            case SDL_GAMEPAD_BUTTON_LABEL_Y: return C_Y;
+            default: break;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_SOUTH: return C_B;
+    case SDL_GAMEPAD_BUTTON_EAST: return C_A;
+    case SDL_GAMEPAD_BUTTON_WEST: return C_Y;
+    case SDL_GAMEPAD_BUTTON_NORTH: return C_X;
+    }
+    return -1;
+}
+
+void ios_gamepad_button(SDL_JoystickID const which, int const button, int const down)
 {
     int c = -1;
     unsigned char d = 0;
 
     switch (button) {
-    case SDL_GAMEPAD_BUTTON_SOUTH: c = C_B; break; /* the SNES's own places */
-    case SDL_GAMEPAD_BUTTON_EAST: c = C_A; break;
-    case SDL_GAMEPAD_BUTTON_WEST: c = C_Y; break;
-    case SDL_GAMEPAD_BUTTON_NORTH: c = C_X; break;
+    case SDL_GAMEPAD_BUTTON_SOUTH:
+    case SDL_GAMEPAD_BUTTON_EAST:
+    case SDL_GAMEPAD_BUTTON_WEST:
+    case SDL_GAMEPAD_BUTTON_NORTH:
+        c = face_button(which, button);
+        if (c < 0)
+            return;
+        break;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: c = C_L; break;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: c = C_R; break;
     case SDL_GAMEPAD_BUTTON_BACK: c = C_SELECT; break;

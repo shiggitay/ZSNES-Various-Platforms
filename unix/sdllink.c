@@ -837,7 +837,7 @@ int Main_Proc(void)
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
             int idx = joystick_index_from_id(event.gbutton.which);
 #ifdef ZSNES_IOS
-            ios_gamepad_button(event.gbutton.button, 1);
+            ios_gamepad_button(event.gbutton.which, event.gbutton.button, 1);
 #endif
             if (idx < 0 || !GamepadInput[idx]
                 || event.gbutton.button >= GAMEPAD_BUTTON_BINDING_COUNT) {
@@ -853,7 +853,7 @@ int Main_Proc(void)
 
         case SDL_EVENT_GAMEPAD_BUTTON_UP: {
 #ifdef ZSNES_IOS
-            ios_gamepad_button(event.gbutton.button, 0);
+            ios_gamepad_button(event.gbutton.which, event.gbutton.button, 0);
 #endif
             int idx = joystick_index_from_id(event.gbutton.which);
             if (idx < 0 || !GamepadInput[idx]
