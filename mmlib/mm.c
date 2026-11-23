@@ -47,7 +47,7 @@ static const ManyMouseDriver* mice_drivers[] = {
 #if ((defined _WIN32) || defined(__CYGWIN__))
     &ManyMouseDriver_windows,
 #endif
-#if ((defined(__MACH__)) && (defined(__APPLE__)))
+#if ((defined(__MACH__)) && (defined(__APPLE__))) && !defined(ZSNES_IOS) /* macOS's IOKit */
     &ManyMouseDriver_hidmanager,
 #endif
     NULL

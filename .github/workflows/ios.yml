@@ -12,6 +12,7 @@ on:
       - "unix/**"
       - "main.c"
       - "zpath.c"
+      - "mmlib/**"
       - "gblhdr.h"
       - "ver.c"
   workflow_dispatch:
