@@ -2,7 +2,7 @@
 
 <img align="right" width="128" height="128" alt="logo" src="img/128x128x32.png">
 
-ZSNES PPC is ZSNES for PowerPC Macs: a fork of
+ZSNES PPC is ZSNES for PowerPC Macs, and the iPhone: a fork of
 [xyproto/zsnes](https://github.com/xyproto/zsnes) (ZSNES 2, the C port) that
 runs on
 
@@ -11,7 +11,10 @@ runs on
   (frame counter on Command-F, full screen on Shift-Command-F or
   Command-Return);
 * **Mac OS X on PowerPC**, as a native Carbon application with the same
-  features, the menu bar and the Dock hidden in full screen; and
+  features, the menu bar and the Dock hidden in full screen;
+* **the iPhone** (iOS 12 and later), with an on-screen controller and
+  Bluetooth controllers, built by `tools/build-ios.sh` on GitHub's Mac
+  runners; and
 * **Yellow Dog Linux 3** and other 32-bit PowerPC Linux of its age (Linux 2.4
   or 2.6, glibc 2.3, SDL 1.2, and theoretically newer 32-bit PowerPC Linux distros as well), with the same OpenGL modes through SDL 1.2 and
   the same shortcuts on Control.
@@ -19,7 +22,7 @@ runs on
 The emulator core is byte-order independent: on the test suite and 164 test
 ROMs a PowerPC build produces the same machine state, picture and sound as an
 x86 one, frame for frame. Sprite, Mode 7 and background drawing were made
-markedly faster for the slower machines. Ready-to-run builds for all three are in
+markedly faster for the slower machines. Ready-to-run builds for all of them are in
 [builds/](builds/); how to make them is under
 [Classic Mac OS](#classic-mac-os-mac-os-86-to-922-powerpc) and
 [32-bit PowerPC](#32-bit-powerpc-yellow-dog-linux-g3g4g5-ps3) below. The rest

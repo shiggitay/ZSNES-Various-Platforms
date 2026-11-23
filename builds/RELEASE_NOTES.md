@@ -1,4 +1,4 @@
-ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs: classic Mac OS, Mac OS X and Linux.
+ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs (classic Mac OS, Mac OS X, Linux), and the iPhone.
 
 **Mac OS 8.6 to 9.2.2** - `zsnes-ppc-classic-macos.sit.hqx`
 - Double-click it: StuffIt Expander, included with Mac OS 8 and 9 (and what the browsers of the time hand downloads to), unpacks a "ZSNES PPC" folder with the application and its read me.
@@ -8,6 +8,11 @@ ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs: classic Mac OS, Mac OS X a
 **Mac OS X 10.2 to 10.4 (PowerPC)** - `zsnes-ppc-macosx.sit.hqx`
 - A native Carbon application (not Classic), with the Mac OS 9 build's features: OpenGL video modes through Mac OS X's OpenGL, full screen with the menu bar and the Dock hidden, and the Video menu (Show FPS, Full Screen, Sync to Monitor).
 - Double-click it: StuffIt Expander unpacks a "ZSNES PPC" folder with the application and its read me. Keep the folder somewhere you can write to.
+
+**iPhone (iOS 12 and later)** - `zsnes-ppc-ios.ipa`
+- Sideload it with AltStore, SideStore or Sideloadly (or TrollStore where it runs); ROMs go in ZSNES's folder in the Files app.
+- An on-screen SNES controller beside the 4:3 picture, with MENU and FPS buttons. A Bluetooth controller works as player 1 straight away and hides the on-screen controls: a Switch Pro Controller by its letters, Xbox and PlayStation pads by position; Start+Select opens the ZSNES menu.
+- The battery save and settings are written whenever the app goes to the background.
 
 **32-bit PowerPC Linux** - `zsnes-ppc32-linux.tar.gz`
 - Needs only glibc 2.3 and SDL 1.2; Linux 2.4 or 2.6. Run from a terminal in X, or run `./install-launcher.sh` once for a desktop and menu launcher with the ZSNES icon; the window carries the icon too.
