@@ -1,5 +1,5 @@
 #!/bin/sh
-# build-ios.sh - build ZSNES for iOS and iPadOS (arm64, iOS 12 and later) as an
+# build-ios.sh - build ZSNES for the iPhone (arm64, iOS 12 and later) as an
 # unsigned .ipa, on a Mac with Xcode and GNU make (brew install make cmake).
 #
 #   tools/build-ios.sh            leaves build-ios/zsnes-ios.ipa
@@ -105,7 +105,7 @@ echo "LINK ZSNES"
 
 sed -e "s/@MINIOS@/$MINIOS/" -e "s/@SDKVER@/$SDKVER/g" ios/Info.plist > "$APP/Info.plist"
 xcrun ibtool --compile "$APP/LaunchScreen.storyboardc" ios/LaunchScreen.storyboard \
-    --minimum-deployment-target "$MINIOS" --target-device iphone --target-device ipad
+    --minimum-deployment-target "$MINIOS" --target-device iphone
 # The icon: an asset catalog of the one 1024-pixel image, which actool turns
 # into every size the device asks for, and the Info.plist entries for them.
 XCA=$OUT/Assets.xcassets
@@ -125,7 +125,7 @@ cat > "$XCA/AppIcon.appiconset/Contents.json" <<'EOF'
 EOF
 xcrun actool "$XCA" --compile "$APP" --platform iphoneos --minimum-deployment-target "$MINIOS" \
     --app-icon AppIcon --output-partial-info-plist "$OUT/icon.plist" \
-    --target-device iphone --target-device ipad --output-format human-readable-text
+    --target-device iphone --output-format human-readable-text
 /usr/libexec/PlistBuddy -c "Merge $OUT/icon.plist" "$APP/Info.plist"
 plutil -convert binary1 "$APP/Info.plist"
 cp ios/ReadMe.txt "$OUT/ReadMe.txt" 2>/dev/null || true

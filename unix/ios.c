@@ -119,18 +119,30 @@ static void layout(SDL_Renderer* const r)
     picture.x = (out_w - picture.w) / 2;
     picture.y = (out_h - picture.h) / 2;
 
-    lx = il + 0.21f * u;          /* left thumb */
-    rx = out_w - ir - 0.21f * u;  /* right thumb */
-    cy = out_h - ib - 0.36f * u;
-    place(&ctl[C_DPAD], lx, cy, 0.17f * u, 0.17f * u, 1, NULL);
-    place(&ctl[C_A], rx + 0.115f * u, cy, 0.068f * u, 0.068f * u, 1, "A");
-    place(&ctl[C_B], rx, cy + 0.115f * u, 0.068f * u, 0.068f * u, 1, "B");
-    place(&ctl[C_X], rx, cy - 0.115f * u, 0.068f * u, 0.068f * u, 1, "X");
-    place(&ctl[C_Y], rx - 0.115f * u, cy, 0.068f * u, 0.068f * u, 1, "Y");
-    place(&ctl[C_L], il + 0.13f * u, 0.09f * u, 0.11f * u, 0.045f * u, 0, "L");
-    place(&ctl[C_R], out_w - ir - 0.13f * u, 0.09f * u, 0.11f * u, 0.045f * u, 0, "R");
-    place(&ctl[C_SELECT], il + 0.13f * u, out_h - ib - 0.07f * u, 0.085f * u, 0.035f * u, 0, "SELECT");
-    place(&ctl[C_START], out_w - ir - 0.13f * u, out_h - ib - 0.07f * u, 0.085f * u, 0.035f * u, 0, "START");
+    /* The controls go in the margins beside the picture, sized to them:
+       full size beside a notched iPhone's picture, smaller on a 16:9 one
+       (an iPhone 8 or SE), where they also reach a little over it. */
+    {
+        float const avail_l = picture.x - il, avail_r = out_w - ir - (picture.x + picture.w);
+        float const avail = avail_l < avail_r ? avail_l : avail_r;
+        float k = avail / (2.0f * 0.19f * u);
+        float half;
+
+        k = k > 1.0f ? 1.0f : k < 0.75f ? 0.75f : k;
+        half = 0.19f * u * k; /* half the width of the d-pad or the buttons */
+        lx = il + (avail_l / 2 > half + 0.01f * u ? avail_l / 2 : half + 0.01f * u);
+        rx = out_w - ir - (avail_r / 2 > half + 0.01f * u ? avail_r / 2 : half + 0.01f * u);
+        cy = out_h - ib - 0.36f * u;
+        place(&ctl[C_DPAD], lx, cy, 0.17f * u * k, 0.17f * u * k, 1, NULL);
+        place(&ctl[C_A], rx + 0.115f * u * k, cy, 0.068f * u * k, 0.068f * u * k, 1, "A");
+        place(&ctl[C_B], rx, cy + 0.115f * u * k, 0.068f * u * k, 0.068f * u * k, 1, "B");
+        place(&ctl[C_X], rx, cy - 0.115f * u * k, 0.068f * u * k, 0.068f * u * k, 1, "X");
+        place(&ctl[C_Y], rx - 0.115f * u * k, cy, 0.068f * u * k, 0.068f * u * k, 1, "Y");
+        place(&ctl[C_L], lx, 0.09f * u, 0.11f * u * k, 0.045f * u, 0, "L");
+        place(&ctl[C_R], rx, 0.09f * u, 0.11f * u * k, 0.045f * u, 0, "R");
+        place(&ctl[C_SELECT], lx, out_h - ib - 0.07f * u, 0.085f * u * k, 0.035f * u, 0, "SELECT");
+        place(&ctl[C_START], rx, out_h - ib - 0.07f * u, 0.085f * u * k, 0.035f * u, 0, "START");
+    }
     place(&ctl[C_MENU], out_w / 2 - 0.085f * u, 0.045f * u, 0.07f * u, 0.03f * u, 0, "MENU");
     place(&ctl[C_FPS], out_w / 2 + 0.085f * u, 0.045f * u, 0.07f * u, 0.03f * u, 0, "FPS");
 }

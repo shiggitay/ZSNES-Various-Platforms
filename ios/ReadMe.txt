@@ -1,8 +1,10 @@
-ZSNES PPC 1.0 for iOS and iPadOS
+ZSNES PPC 1.0 for iPhone
 
 WHAT YOU NEED
-- An iPhone, iPad or iPod touch with iOS or iPadOS 12 or later (iPhone 5s,
-  iPad Air, iPad mini 2, iPod touch 6th generation and newer).
+- An iPhone with iOS 12 or later: the iPhone 5s and every iPhone since
+  (the iPod touch 6th and 7th generation too). It is laid out for the
+  iPhone's screen, the 16:9 ones (iPhone 6 to 8, SE) and the taller ones
+  (iPhone X and later) alike; an iPad runs it in an iPhone-sized window.
 - A way to install an app that is not from the App Store. zsnes-ios.ipa is
   not signed for any one person's device, so one of these does that:
     AltStore or SideStore (altstore.io, sidestore.io) - sign with your
@@ -16,7 +18,7 @@ WHAT YOU NEED
 GETTING STARTED
 1. Install zsnes-ios.ipa with one of the tools above, and open ZSNES once.
 2. Put your ROMs (.sfc, .smc, .zip) in ZSNES's folder: in the Files app,
-   On My iPhone (or iPad) > ZSNES. From a computer, the Finder (macOS
+   On My iPhone > ZSNES. From a computer, the Finder (macOS
    10.15 and later) or iTunes shows the same folder under File Sharing.
 3. In ZSNES, tap Game > Load and pick the ROM. Battery saves (.srm) and
    save states (.zst) go next to it, in the same folder.
@@ -36,13 +38,14 @@ A game controller (MFi, Xbox or PlayStation) works as player 1 as soon as
 it is connected, and the on-screen controller hides: A/B/X/Y by position as
 on a SNES pad, the shoulder buttons as L and R, Menu/Options as Start,
 View/Share as Select, the d-pad or left stick, and the Home button for the
-ZSNES menu. A keyboard (on an iPad, say) works as on a computer: the arrow
+ZSNES menu. A Bluetooth keyboard works as on a computer: the arrow
 keys, X = A, Z = B, S = X, A = Y, D/C = L/R, Return = Start, Right Shift =
 Select, Esc for the menu, Ctrl-F for the frame counter.
 
 VIDEO AND SOUND
 The picture is drawn 4:3, as tall as the screen, by the graphics processor
-(Metal); the ZSNES filters (Config > Video) work as elsewhere. Sound plays
+(Metal), with the controls in the margins beside it (over its edges a little
+on a 16:9 iPhone, where the margins are narrower); the ZSNES filters (Config > Video) work as elsewhere. Sound plays
 at 44100 Hz, and also with the ring/silent switch on silent.
 
 WHEN ZSNES GOES TO THE BACKGROUND
