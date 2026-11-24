@@ -57,7 +57,7 @@ SRCS="$SRCS ps4/ps4.c macos9/safelib.c macos9/net_stub.c"
 
 DEFS="-DZSNES_PS4 -D__UNIXSDL__ -DZSNES_SDL12 -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
 CFLAGS="-std=gnu11 -O2 -fno-strict-aliasing -Wall -Wno-unused-parameter -Wno-unused-function \
- -Wno-unused-variable -Wno-unused-but-set-variable -Wno-char-subscripts -Wno-pointer-sign \
+ -Wno-unused-variable -Wno-char-subscripts -Wno-pointer-sign -Wno-unknown-warning-option \
  -Werror=implicit-function-declaration -I$OUT ${PS4_CFLAGS:-}"
 
 for p in cfg input md; do
@@ -91,7 +91,6 @@ echo "LINK ZSNES.elf"
     "$OO/lib/crt1.o"
 
 echo "FSELF eboot.bin"
-ls -l "$OO" "$OO/bin" "$OO/bin/linux" 2>&1 | head -40
 PKG=$OUT/pkg
 rm -rf "$PKG"
 mkdir -p "$PKG/sce_sys/about"
