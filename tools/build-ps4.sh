@@ -21,7 +21,19 @@ CONTENT_ID=IV0000-${TITLE_ID}_00-ZSNESPS400000000
 VERSION=1.00
 CLANG=$(command -v clang || command -v clang-12)
 LLD=$(command -v ld.lld || command -v ld.lld-12)
-BIN=$OO/bin/linux
+# OpenOrbis's tools (create-fself, create-gp4, PkgTool.Core): on the PATH in
+# its image, or in bin/linux of the toolchain.
+tool() {
+    if command -v "$1" >/dev/null 2>&1; then
+        command -v "$1"
+    elif [ -x "$OO/bin/linux/$1" ]; then
+        echo "$OO/bin/linux/$1"
+    else
+        echo "OpenOrbis's $1 not found; its tools here:" >&2
+        ls -l "$OO/bin" "$OO/bin/linux" >&2 || true
+        exit 1
+    fi
+}
 
 mkdir -p "$OUT"
 cd "$ROOT"
@@ -79,10 +91,11 @@ echo "LINK ZSNES.elf"
     "$OO/lib/crt1.o"
 
 echo "FSELF eboot.bin"
+ls -l "$OO" "$OO/bin" "$OO/bin/linux" 2>&1 | head -40
 PKG=$OUT/pkg
 rm -rf "$PKG"
 mkdir -p "$PKG/sce_sys/about"
-"$BIN/create-fself" -in="$OUT/ZSNES.elf" -out="$OUT/ZSNES.oelf" --eboot "$PKG/eboot.bin" --paid 0x3800000000000011
+"$(tool create-fself)" -in="$OUT/ZSNES.elf" -out="$OUT/ZSNES.oelf" --eboot "$PKG/eboot.bin" --paid 0x3800000000000011
 cp ps4/icon0.png "$PKG/sce_sys/icon0.png"
 FILES="eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
 if [ -n "${RIGHT_SPRX:-}" ] && [ -f "$RIGHT_SPRX" ]; then
@@ -91,24 +104,25 @@ if [ -n "${RIGHT_SPRX:-}" ] && [ -f "$RIGHT_SPRX" ]; then
 fi
 
 echo "SFO param.sfo"
+PKGTOOL=$(tool PkgTool.Core)
 SFO=$PKG/sce_sys/param.sfo
-"$BIN/PkgTool.Core" sfo_new "$SFO"
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" APP_TYPE --type Integer --maxsize 4 --value 1
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" APP_VER --type Utf8 --maxsize 8 --value "$VERSION"
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" ATTRIBUTE --type Integer --maxsize 4 --value 0
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" CATEGORY --type Utf8 --maxsize 4 --value gd
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" CONTENT_ID --type Utf8 --maxsize 48 --value "$CONTENT_ID"
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" DOWNLOAD_DATA_SIZE --type Integer --maxsize 4 --value 0
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" SYSTEM_VER --type Integer --maxsize 4 --value 0
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" TITLE --type Utf8 --maxsize 128 --value "$TITLE"
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" TITLE_ID --type Utf8 --maxsize 12 --value "$TITLE_ID"
-"$BIN/PkgTool.Core" sfo_setentry "$SFO" VERSION --type Utf8 --maxsize 8 --value "$VERSION"
+"$PKGTOOL" sfo_new "$SFO"
+"$PKGTOOL" sfo_setentry "$SFO" APP_TYPE --type Integer --maxsize 4 --value 1
+"$PKGTOOL" sfo_setentry "$SFO" APP_VER --type Utf8 --maxsize 8 --value "$VERSION"
+"$PKGTOOL" sfo_setentry "$SFO" ATTRIBUTE --type Integer --maxsize 4 --value 0
+"$PKGTOOL" sfo_setentry "$SFO" CATEGORY --type Utf8 --maxsize 4 --value gd
+"$PKGTOOL" sfo_setentry "$SFO" CONTENT_ID --type Utf8 --maxsize 48 --value "$CONTENT_ID"
+"$PKGTOOL" sfo_setentry "$SFO" DOWNLOAD_DATA_SIZE --type Integer --maxsize 4 --value 0
+"$PKGTOOL" sfo_setentry "$SFO" SYSTEM_VER --type Integer --maxsize 4 --value 0
+"$PKGTOOL" sfo_setentry "$SFO" TITLE --type Utf8 --maxsize 128 --value "$TITLE"
+"$PKGTOOL" sfo_setentry "$SFO" TITLE_ID --type Utf8 --maxsize 12 --value "$TITLE_ID"
+"$PKGTOOL" sfo_setentry "$SFO" VERSION --type Utf8 --maxsize 8 --value "$VERSION"
 
 echo "PKG zsnes-ps4.pkg"
 (
     cd "$PKG"
-    "$BIN/create-gp4" -out pkg.gp4 --content-id="$CONTENT_ID" --files "$FILES"
-    "$BIN/PkgTool.Core" pkg_build pkg.gp4 .
+    "$(tool create-gp4)" -out pkg.gp4 --content-id="$CONTENT_ID" --files "$FILES"
+    "$PKGTOOL" pkg_build pkg.gp4 .
 )
 mv "$PKG/$CONTENT_ID.pkg" "$OUT/zsnes-ps4.pkg"
 ls -l "$PKG/eboot.bin" "$OUT/zsnes-ps4.pkg"
