@@ -230,6 +230,13 @@ typedef Uint16 SDL_Keymod;
 
 #define SDL_KMOD_NUM 0x1000u
 #define SDL_KMOD_ALT 0x0300u
+#define SDL_KMOD_LSHIFT 0x0001u
+#define SDL_KMOD_RSHIFT 0x0002u
+#define SDL_KMOD_LCTRL 0x0040u
+#define SDL_KMOD_RCTRL 0x0080u
+#define SDL_KMOD_CTRL 0x00C0u
+#define SDL_KMOD_LALT 0x0100u
+#define SDL_KMOD_RALT 0x0200u
 
 #define ZS3_BUTTON_LEFT 1
 #define ZS3_BUTTON_MIDDLE 2

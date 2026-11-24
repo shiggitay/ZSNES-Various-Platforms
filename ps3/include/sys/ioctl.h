@@ -1,0 +1,3 @@
+#ifndef ZSNES_PS3_SYS_IOCTL_H
+#define ZSNES_PS3_SYS_IOCTL_H
+#endif

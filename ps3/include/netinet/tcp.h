@@ -1,0 +1,3 @@
+#ifndef ZSNES_PS3_NETINET_TCP_H
+#define ZSNES_PS3_NETINET_TCP_H
+#endif

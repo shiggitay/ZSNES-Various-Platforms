@@ -464,6 +464,9 @@ static void on_quit_signal(int sig)
 
 void InstallQuitSignalHandlers(void)
 {
+#ifdef ZSNES_PS3
+    (void)on_quit_signal; /* no signals there; the XMB's quit comes as an event */
+#else
     struct sigaction sa;
 
     /* Own these instead of SDL, whose handler posts SDL_EVENT_QUIT only once
@@ -474,6 +477,7 @@ void InstallQuitSignalHandlers(void)
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+#endif
 }
 
 int Main_Proc(void)
@@ -548,9 +552,9 @@ int Main_Proc(void)
                 SwitchFullScreen();
                 break;
             }
-#ifdef ZSNES_IOS
+#if defined(ZSNES_IOS) || defined(ZSNES_PS3)
             /* Ctrl-F, the frame counter, as on the other ZSNES PPC ports
-               (the on-screen FPS button does the same). */
+               (the iPhone's FPS button and the PS3's L3 do the same). */
             if (event.key.key == SDLK_F && (event.key.mod & SDL_KMOD_CTRL)) {
                 extern u1 FPSOn, frameskip;
 

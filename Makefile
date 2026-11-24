@@ -145,9 +145,12 @@ endif
 ifeq ($(filter $(CPU),x86 arm64 riscv64 ppc),)
 $(error Unsupported CPU '$(CPU)'. Supported values: x86 arm64 riscv64 ppc)
 endif
-# 32-bit big-endian PowerPC only (G3/G4/G5/Cell under a 32-bit userland).
+# 32-bit big-endian PowerPC (G3/G4/G5/Cell under a 32-bit userland), or
+# 64-bit (a G5's or the Cell's 64-bit userland) when BITS=64 is asked for.
 ifeq ($(CPU),ppc)
+ifneq ($(origin BITS)/$(BITS),command line/64)
 override BITS := 32
+endif
 endif
 ifneq ($(filter $(CPU),arm64 riscv64),)
 override BITS := 64
@@ -165,7 +168,7 @@ endif
 # PPC_CFLAGS tunes for a core, e.g. -mcpu=7450 (G4), -mcpu=970 (G5) or
 # -mcpu=cell (PS3). The default runs on any 32-bit PowerPC.
 ifeq ($(CPU),ppc)
-ARCH_CFLAGS += -m32 $(PPC_CFLAGS)
+ARCH_CFLAGS += -m$(BITS) $(PPC_CFLAGS)
 endif
 ifeq ($(ARCH),DARWIN)
 DARWIN_ARCH ?= $(if $(filter arm64,$(CPU)),arm64,x86_64)

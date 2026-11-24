@@ -963,6 +963,13 @@ int main(int const argc, char** const argv)
         ios_setup(); /* folders and hints, before the paths are read */
     }
 #endif
+#ifdef ZSNES_PS3
+    {
+        void ps3_setup(char const* argv0);
+
+        ps3_setup(argc > 0 ? argv[0] : NULL); /* settings in USRDIR */
+    }
+#endif
     if (init_paths(*argv)) {
 #ifdef __UNIXSDL__
         /* Before any SDL video init, so the SDL_HINT it sets is read in time. */

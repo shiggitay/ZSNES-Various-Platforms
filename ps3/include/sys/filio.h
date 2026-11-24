@@ -1,0 +1,3 @@
+#ifndef ZSNES_PS3_SYS_FILIO_H
+#define ZSNES_PS3_SYS_FILIO_H
+#endif
