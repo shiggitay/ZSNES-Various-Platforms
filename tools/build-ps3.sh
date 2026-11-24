@@ -7,7 +7,7 @@
 #     PS3DEV=/path/to/ps3dev ./toolchain.sh 1 2 4 5 6 8
 #   PS3DEV=/path/to/ps3dev tools/build-ps3.sh
 #
-# Leaves build-ps3/zsnes-ppc-ps3.pkg, which installs ZSNES PPC under Game in
+# Leaves build-ps3/zsnes-ps3.pkg, which installs ZSNES under Game in
 # the XMB (title ID ZSNE00001), and build-ps3/pkg/USRDIR/EBOOT.BIN. The
 # frontend is the Unix one built for SDL 1.2's set of calls, which ps3/ps3.c
 # provides on the PS3's own libraries (RSX video, pads, audio).
@@ -22,7 +22,7 @@ OUT=${OUT:-$ROOT/build-ps3}
 JOBS=${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
 CC=ppu-gcc
 APPID=ZSNE00001
-TITLE="ZSNES PPC"
+TITLE="ZSNES"
 CONTENTID=UP0001-${APPID}_00-0000000000000000
 
 command -v $CC >/dev/null || { echo "need PSL1GHT's $CC: set PS3DEV" >&2; exit 1; }
@@ -88,8 +88,8 @@ cp ps3/ICON0.PNG "$OUT/pkg/ICON0.PNG"
 cp ps3/ReadMe.txt "$OUT/pkg/USRDIR/ReadMe.txt"
 sfo --title "$TITLE" --appid "$APPID" -f "$PSL1GHT/bin/sfo.xml" "$OUT/pkg/PARAM.SFO"
 
-echo "PKG zsnes-ppc-ps3.pkg"
-rm -f "$OUT/zsnes-ppc-ps3.pkg"
-pkg --contentid "$CONTENTID" "$OUT/pkg/" "$OUT/zsnes-ppc-ps3.pkg" >/dev/null
-package_finalize "$OUT/zsnes-ppc-ps3.pkg"
-ls -l "$OUT/pkg/USRDIR/EBOOT.BIN" "$OUT/zsnes-ppc-ps3.pkg"
+echo "PKG zsnes-ps3.pkg"
+rm -f "$OUT/zsnes-ps3.pkg"
+pkg --contentid "$CONTENTID" "$OUT/pkg/" "$OUT/zsnes-ps3.pkg" >/dev/null
+package_finalize "$OUT/zsnes-ps3.pkg"
+ls -l "$OUT/pkg/USRDIR/EBOOT.BIN" "$OUT/zsnes-ps3.pkg"

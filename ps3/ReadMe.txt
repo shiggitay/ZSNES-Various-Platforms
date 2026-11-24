@@ -1,17 +1,17 @@
-ZSNES PPC 1.0 for PlayStation 3
+ZSNES for PS3
 
 WHAT YOU NEED
 - A PlayStation 3 that runs homebrew: custom firmware (CFW) or PS3HEN.
-  ZSNES PPC is a native PS3 program, run from the XMB; it runs on the
+  ZSNES for PS3 is a native PS3 program, run from the XMB; it runs on the
   Cell's PowerPC core (the PPU).
 
 GETTING STARTED
-1. Copy zsnes-ppc-ps3.pkg to a USB drive, plug it in, and install it with
+1. Copy zsnes-ps3.pkg to a USB drive, plug it in, and install it with
    Package Manager > Install Package Files (on HEN, enable HEN first).
-   ZSNES PPC appears under Game in the XMB.
+   ZSNES appears under Game in the XMB.
 2. Put your ROMs (.sfc, .smc, .zip) on a USB drive or on the PS3's hard
    disk, for example with FTP (multiMAN, webMAN) into /dev_hdd0/ROMS.
-3. Start ZSNES PPC and pick a ROM with Game > Load. The file list starts in
+3. Start ZSNES and pick a ROM with Game > Load. The file list starts in
    the program's own folder (/dev_hdd0/game/ZSNE00001/USRDIR); ".." goes
    up, and "/" shows the drives: dev_hdd0 is the hard disk, dev_usb000 and
    so on the USB drives. Settings, battery saves (.srm) and save states
@@ -56,12 +56,12 @@ WHAT IS NOT THERE YET
 - The PS button opens the XMB's own menu, as in any PS3 game; quitting
   from it saves the game's battery save as quitting from ZSNES does.
 
-ABOUT ZSNES PPC
-ZSNES PPC is ZSNES for PowerPC: a fork of ZSNES 2, Alexander F. Rodseth's C
-port of ZSNES (github.com/xyproto/zsnes), here as a native program for the
-PlayStation 3's Cell processor, made with PSL1GHT. The emulator core gives
-the same machine state, picture and sound as on an x86 PC, frame for frame.
-No ROMs are included.
+ABOUT ZSNES FOR PS3
+ZSNES for PS3 comes from ZSNES PPC, ZSNES for PowerPC: a fork of ZSNES 2,
+Alexander F. Rodseth's C port of ZSNES (github.com/xyproto/zsnes), here as a
+native program for the PlayStation 3's Cell processor, made with PSL1GHT.
+The emulator core gives the same machine state, picture and sound as on an
+x86 PC, frame for frame. No ROMs are included.
 
 Source code, other builds and problem reports:
     https://github.com/shiggitay/zsnes-ppc

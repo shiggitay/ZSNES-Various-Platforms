@@ -293,7 +293,7 @@ a Mac OS X icon family (`macos9/icns.r`, from `tools/mkicns.py`).
 
 `tools/build-ps3.sh` builds ZSNES as PS3 homebrew with
 [PSL1GHT](https://github.com/ps3dev/PSL1GHT) and leaves an installable
-`build-ps3/zsnes-ppc-ps3.pkg`:
+`build-ps3/zsnes-ps3.pkg`:
 
 ```sh
 git clone https://github.com/ps3dev/ps3toolchain
