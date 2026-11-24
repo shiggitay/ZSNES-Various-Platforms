@@ -1086,6 +1086,7 @@ static void pads_poll(void)
         }
         if (cross && !menu_cross) {
             menu_cross = pointer_mode ? 2 : 1;
+            LOG("menu: Cross, as %s", menu_cross == 2 ? "a click" : "Return");
             if (menu_cross == 2)
                 push_click(1);
             else

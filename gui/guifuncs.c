@@ -1136,6 +1136,10 @@ void populate_lists(unsigned int lists, bool snes_ext_match)
         }
         closedir(dir);
     }
+#ifdef ZSNES_PS4
+    ps4_log("file list of %s: %d folders, %d files", ZRomPath, d_names ? (int)(intptr_t)*d_names - 1 : 0,
+        i_names ? (int)(intptr_t)*i_names - 1 : lf_names ? (int)(intptr_t)*lf_names - 1 : 0);
+#endif
 
     if (lists & LIST_DN) {
 #ifndef __UNIXSDL__
@@ -1305,6 +1309,11 @@ void GUILoadData(void)
     char* nameptr;
 
     GUICBHold = 0;
+#ifdef ZSNES_PS4
+    ps4_log("load: %s list, entry %d of %d", GUIcurrentfilewin ? "folder" : "file",
+        GUIcurrentfilewin ? (int)GUIcurrentdircursloc : (int)GUIcurrentcursloc,
+        GUIcurrentfilewin ? (int)GUIdirentries : (int)GUIfileentries);
+#endif
     /* An empty listing has no list at all, and LOAD is a button. */
     if (GUIcurrentfilewin ? (!d_names || GUIcurrentdircursloc >= GUIdirentries)
                           : (!main_names || GUIcurrentcursloc >= GUIfileentries))
@@ -1379,6 +1388,9 @@ void GUILoadData(void)
 void GUILoadManualDir(void)
 {
 
+#ifdef ZSNES_PS4
+    ps4_log("load: typed name \"%s\"", GUILoadTextA);
+#endif
     if (*GUILoadTextA) {
         char path_buff[PATH_SIZE];
         bool realpath_success;
