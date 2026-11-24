@@ -150,7 +150,6 @@ static void notify(char const* fmt, ...);
 static void shutdown_all(void)
 {
     LOG("quitting");
-    notify("ZSNES has quit");
     audio_stop();
     video_stop();
     sceSystemServiceLoadExec("exit", NULL);
@@ -264,7 +263,6 @@ void ps4_setup(char const* const argv0)
     char path[300];
     unsigned i;
 
-    notify("ZSNES is starting");
     data_dir[0] = '\0';
     for (i = 0; i < sizeof dirs / sizeof dirs[0]; i++) {
         if (writable(dirs[i])) {
@@ -287,7 +285,6 @@ void ps4_setup(char const* const argv0)
     if (log_file)
         setvbuf(log_file, NULL, _IONBF, 0);
     LOG("ZSNES for PS4, started from %s; folder %s", argv0 ? argv0 : "?", data_dir);
-    notify("ZSNES: settings and log in %s", data_dir);
     /* The current directory: the PS4's own chdir fails, so ps4/posix.c
        keeps one (ZSNES works out its paths from it). */
     ps4_set_cwd(data_dir);
@@ -394,7 +391,6 @@ static int video_start(void)
     sceVideoOutSetFlipRate(video_handle, 0); /* every vertical blank: 60 Hz */
     video_ready = 1;
     LOG("video out %ux%u, %d buffers", disp_w, disp_h, NBUF);
-    notify("ZSNES: video ready");
     return 1;
 }
 
@@ -1086,7 +1082,6 @@ static void pads_poll(void)
         }
         if (cross && !menu_cross) {
             menu_cross = pointer_mode ? 2 : 1;
-            LOG("menu: Cross, as %s", menu_cross == 2 ? "a click" : "Return");
             if (menu_cross == 2)
                 push_click(1);
             else
