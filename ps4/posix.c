@@ -6,6 +6,7 @@
 #undef getcwd
 #undef realpath
 #undef fopen
+#undef access
 
 #include <errno.h>
 #include <stdio.h>
@@ -296,4 +297,22 @@ FILE* ps4_fopen(char const* const path, char const* const mode)
     else if (!f && errno != ENOENT)
         ps4_log("could not read %s: errno %d", full, errno);
     return f;
+}
+
+int ps4_access(char const* const path, int const mode)
+{
+    char full[PATH_MAX];
+    struct stat st;
+
+    (void)mode; /* everything ZSNES's own folders hold is its to read and write */
+    if (!path || !*path) {
+        errno = ENOENT;
+        return -1;
+    }
+    full_path(full, sizeof full, path);
+    if (ps4_stat(full, &st) != 0) {
+        ps4_log("access %s: not found", full);
+        return -1;
+    }
+    return 0;
 }

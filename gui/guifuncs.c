@@ -1220,6 +1220,9 @@ void loadquickfname(u1 const slot)
         snprintf(ZCartName, NAME_SIZE, "%.*s", NAME_SIZE - 1,
             (char*)prevloadfnamel + slot * QUICK_SLOT_BYTES);
 
+#ifdef ZSNES_PS4
+        ps4_log("load: %s%s", ZRomPath, ZCartName);
+#endif
         if (!access_dir(ZRomPath, ZCartName, R_OK)) {
             if (slot || !prevlfreeze) {
                 // move menuitem to top

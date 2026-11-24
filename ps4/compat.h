@@ -34,6 +34,9 @@ int ps4_stat(char const* path, struct stat* st);
    what it cannot open. */
 char* ps4_realpath(char const* path, char* resolved);
 FILE* ps4_fopen(char const* path, char const* mode);
+/* access: whether the path exists, by sceKernelStat (the C library's
+   failed, and the load dialog checks every ROM with it before loading). */
+int ps4_access(char const* path, int mode);
 
 #define chdir ps4_chdir
 #define getcwd ps4_getcwd
@@ -46,5 +49,6 @@ FILE* ps4_fopen(char const* path, char const* mode);
 #define stat(path, st) ps4_stat(path, st)
 #define realpath(path, resolved) ps4_realpath(path, resolved)
 #define fopen(path, mode) ps4_fopen(path, mode)
+#define access(path, mode) ps4_access(path, mode)
 
 #endif

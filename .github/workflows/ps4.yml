@@ -6,14 +6,12 @@ name: PS4
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/ps4.yml"
-      - "tools/build-ps4.sh"
-      - "ps4/**"
-      - "unix/**"
-      - "main.c"
-      - "ver.c"
-      - "zpath.c"
+    # Any change to the program: the core is in the build as much as ps4/.
+    paths-ignore:
+      - "builds/**"
+      - "**.md"
+      - "**.txt"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
