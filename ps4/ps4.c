@@ -45,8 +45,16 @@
 
 typedef uint32_t u32;
 
-/* A line in "ZSNES Log.txt" (see ps4_setup). */
-#define LOG(...) (printf("ps4: " __VA_ARGS__), putchar('\n'))
+/* A line in "ZSNES Log.txt" (see ps4_setup), written and flushed at once. */
+static FILE* log_file;
+#define LOG(...) \
+    do { \
+        if (log_file) { \
+            fprintf(log_file, "ps4: " __VA_ARGS__); \
+            fputc('\n', log_file); \
+            fflush(log_file); \
+        } \
+    } while (0)
 
 /* The emulator's key state (cpu/execute.h). */
 #define PRESSED_SIZE (256 + 128 + 64)
@@ -162,16 +170,19 @@ void ps4_setup(char const* const argv0)
     mkdir(DATA_DIR "/roms", 0777);
     setenv("HOME", DATA_DIR, 1);
     setenv("XDG_CONFIG_HOME", DATA_DIR, 1);
+    /* The log, on a file of its own: a PS4 program shows no console, and a
+       crash leaves what was written. */
+    log_file = fopen(DATA_DIR "/ZSNES Log.txt", "w");
+    if (log_file)
+        setvbuf(log_file, NULL, _IONBF, 0);
+    LOG("ZSNES for PS4, started from %s", argv0 ? argv0 : "?");
     if (chdir(DATA_DIR) != 0)
-        perror(DATA_DIR);
-    /* What ZSNES prints, and this file's notes, written as they come so a
-       crash leaves the log complete: a PS4 program shows no console. */
-    if (freopen(DATA_DIR "/ZSNES Log.txt", "w", stdout)) {
+        LOG("chdir " DATA_DIR " failed");
+    /* ZSNES's own messages, where the system lets standard output go. */
+    if (freopen(DATA_DIR "/ZSNES Output.txt", "w", stdout))
         setvbuf(stdout, NULL, _IONBF, 0);
-        if (freopen(DATA_DIR "/ZSNES Log.txt", "a", stderr))
-            setvbuf(stderr, NULL, _IONBF, 0);
-    }
-    printf("ZSNES for PS4, started from %s\n", argv0 ? argv0 : "?");
+    else
+        LOG("standard output stays the system's");
     memset(&param, 0, sizeof param);
     param.priority = ORBIS_KERNEL_PRIO_FIFO_LOWEST;
     sceUserServiceInitialize(&param);

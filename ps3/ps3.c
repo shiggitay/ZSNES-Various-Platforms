@@ -40,8 +40,16 @@
 
 SYS_PROCESS_PARAM(1001, 0x100000);
 
-/* A line in "ZSNES Log.txt" (see ps3_setup). */
-#define LOG(...) (printf("ps3: " __VA_ARGS__), putchar('\n'))
+/* A line in "ZSNES Log.txt" (see ps3_setup), written and flushed at once. */
+static FILE* log_file;
+#define LOG(...) \
+    do { \
+        if (log_file) { \
+            fprintf(log_file, "ps3: " __VA_ARGS__); \
+            fputc('\n', log_file); \
+            fflush(log_file); \
+        } \
+    } while (0)
 
 /* The emulator's key state (cpu/execute.h, which this file cannot include:
    its u8 is 8 bytes and PSL1GHT's 8 bits). */
@@ -160,29 +168,35 @@ static void system_init(void)
    USRDIR, and the file list starting there. */
 void ps3_setup(char const* const argv0)
 {
-    char dir[1024];
+    char dir[1024], path[1100];
     char* slash;
 
+    /* The program's folder, from its path; the installed one if that is not
+       a full path. */
     snprintf(dir, sizeof dir, "%s", argv0 ? argv0 : "");
     slash = strrchr(dir, '/');
-    if (slash && slash != dir) {
+    if (dir[0] == '/' && slash && slash != dir)
         *slash = '\0';
-        setenv("HOME", dir, 1);
-        setenv("XDG_CONFIG_HOME", dir, 1);
-        if (chdir(dir) != 0)
-            perror(dir);
-    }
-    /* What ZSNES prints, and this file's own notes, in "ZSNES Log.txt" in
-       USRDIR, written as it goes so a crash leaves it complete: the PS3
-       shows a program no console. */
-    if (freopen("ZSNES Log.txt", "w", stdout)) {
+    else
+        snprintf(dir, sizeof dir, "/dev_hdd0/game/ZSNE00001/USRDIR");
+    setenv("HOME", dir, 1);
+    setenv("XDG_CONFIG_HOME", dir, 1);
+    /* The log, by its whole path and on a file of its own: the PS3 shows a
+       program no console, and a crash leaves what was written. */
+    snprintf(path, sizeof path, "%s/ZSNES Log.txt", dir);
+    log_file = fopen(path, "w");
+    if (log_file)
+        setvbuf(log_file, NULL, _IONBF, 0);
+    LOG("ZSNES for PS3, started from %s; folder %s", argv0 ? argv0 : "?", dir);
+    if (chdir(dir) != 0)
+        LOG("chdir %s failed", dir);
+    /* ZSNES's own messages, where the system lets standard output go. */
+    snprintf(path, sizeof path, "%s/ZSNES Output.txt", dir);
+    if (freopen(path, "w", stdout))
         setvbuf(stdout, NULL, _IONBF, 0);
-        if (freopen("ZSNES Log.txt", "a", stderr))
-            setvbuf(stderr, NULL, _IONBF, 0);
-    }
-    printf("ZSNES for PS3, started from %s\n", argv0 ? argv0 : "?");
+    else
+        LOG("standard output stays the system's");
 }
-
 
 bool zs3_Init(Uint32 const flags)
 {

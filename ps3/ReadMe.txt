@@ -57,9 +57,10 @@ WHAT IS NOT THERE YET
   from it saves the game's battery save as quitting from ZSNES does.
 
 IF IT CRASHES
-ZSNES writes what it is doing to "ZSNES Log.txt" in its folder,
-/dev_hdd0/game/ZSNE00001/USRDIR; fetch it over FTP (webMAN, multiMAN) after
-a crash and include it with the report: its last lines say how far it got.
+ZSNES writes what it is doing to "ZSNES Log.txt" (and its own messages to
+"ZSNES Output.txt") in its folder, /dev_hdd0/game/ZSNE00001/USRDIR; fetch
+them over FTP (webMAN, multiMAN) after a crash and include them with the
+report: the last lines say how far it got.
 
 ABOUT ZSNES FOR PS3
 ZSNES for PS3 comes from ZSNES PPC, ZSNES for PowerPC: a fork of ZSNES 2,
