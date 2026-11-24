@@ -1,5 +1,6 @@
-# Builds ZSNES for PS4 (tools/build-ps4.sh) in OpenOrbis's toolchain image,
-# keeps the .pkg with the run, and pushes it to the ps4-build branch.
+# Builds ZSNES for PS4 (tools/build-ps4.sh) with OpenOrbis's newest release
+# and the clang it is built for, keeps the .pkg with the run, and pushes it
+# to the ps4-build branch.
 name: PS4
 
 on:
@@ -20,18 +21,20 @@ permissions:
 
 jobs:
   ps4:
-    runs-on: ubuntu-latest
-    container:
-      image: openorbisofficial/toolchain:latest
-      options: --user root
+    runs-on: ubuntu-24.04
+    env:
+      # PkgTool.Core is .NET; it needs no locale data for what it does here.
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
     steps:
+      - uses: actions/checkout@v4
       - name: Install tools
         run: |
-          apt-get update -q
-          apt-get install -y -q --no-install-recommends python3 make git ca-certificates curl
-      - uses: actions/checkout@v4
-      # The image's "latest" is OpenOrbis v0.5 (2020), without create-fself
-      # and create-gp4; its clang and .NET serve, with the newest release.
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends clang-18 lld-18 python3 make
+          clang-18 --version | head -1
+      # OpenOrbis's newest release, and which LLVM it was built with: the
+      # objects, its start files and its library stubs must agree (a mix of
+      # LLVMs made a package the PS4 called corrupted).
       - name: OpenOrbis's newest release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,32 +42,39 @@ jobs:
           mkdir -p /opt/oo
           curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
             https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases > /tmp/releases.json
+          python3 - <<'PY'
+          import json
+          rel = json.load(open('/tmp/releases.json'))[0]
+          print('release', rel['tag_name'])
+          for a in rel['assets']:
+              print('  asset', a['name'], a['size'])
+          PY
           url=$(python3 - <<'PY'
           import json
-          for rel in json.load(open('/tmp/releases.json')):
-              assets = [a for a in rel['assets'] if a['name'].endswith(('.tar.gz', '.tgz'))]
-              linux = [a for a in assets if 'linux' in a['name'].lower()] or assets
-              if linux:
-                  print(rel['tag_name'], linux[0]['browser_download_url'])
-                  break
+          rel = json.load(open('/tmp/releases.json'))[0]
+          names = [a for a in rel['assets'] if a['name'].endswith(('.tar.gz', '.tgz'))]
+          pick = [a for a in names if 'llvm-18' in a['name']] or names
+          print(pick[0]['browser_download_url'])
           PY
           )
           echo "OpenOrbis: $url"
-          curl -fsSL "${url#* }" | tar -xz -C /opt/oo
-          # The toolchain is the folder with bin/linux in it, however deep.
+          curl -fsSL "$url" | tar -xz -C /opt/oo
           tools=$(find /opt/oo -type d -path '*/bin/linux' | head -1)
           oo=$(dirname "$(dirname "$tools")")
           ls "$oo" "$tools"
+          chmod +x "$tools"/* || true
           echo "OO_PS4_TOOLCHAIN=$oo" >> "$GITHUB_ENV"
           echo "$tools" >> "$GITHUB_PATH"
-      - name: OpenOrbis's right.sprx
+      - name: OpenOrbis's sample files
         run: |
           git clone -q --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git /tmp/oo
-          ls -l /tmp/oo/samples/piglet/sce_sys/about/right.sprx
+          ls -l /tmp/oo/samples/piglet/sce_sys/about /tmp/oo/samples/piglet/sce_module
       - name: Build
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          RIGHT_SPRX=/tmp/oo/samples/piglet/sce_sys/about/right.sprx tools/build-ps4.sh
+          CC_PS4=clang-18 LD_PS4=ld.lld-18 \
+          RIGHT_SPRX=/tmp/oo/samples/piglet/sce_sys/about/right.sprx \
+          SCE_MODULES=/tmp/oo/samples/piglet/sce_module \
+            tools/build-ps4.sh
       - uses: actions/upload-artifact@v4
         with:
           name: zsnes-ps4

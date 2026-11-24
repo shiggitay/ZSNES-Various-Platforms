@@ -2,13 +2,15 @@
 # build-ps4.sh - build ZSNES as PlayStation 4 homebrew with the OpenOrbis
 # toolchain, as an installable .pkg for a PS4 running GoldHEN.
 #
-#   docker run --rm -v "$PWD":/w -w /w --user root openorbisofficial/toolchain:latest \
-#       sh -c 'apt-get update && apt-get install -y python3 make && tools/build-ps4.sh'
+#   OO_PS4_TOOLCHAIN=/path/to/OpenOrbis CC_PS4=clang-18 LD_PS4=ld.lld-18 tools/build-ps4.sh
 #
-# (.github/workflows/ps4.yml does that.) Leaves build-ps4/zsnes-ps4.pkg,
+# (.github/workflows/ps4.yml does that, with OpenOrbis's newest release.)
+# Leaves build-ps4/zsnes-ps4.pkg,
 # which installs "ZSNES" (title ID ZSNS00001). OO_PS4_TOOLCHAIN is where
-# OpenOrbis is (the image sets it). RIGHT_SPRX, if set, is the
-# sce_sys/about/right.sprx to package (OpenOrbis's samples have one).
+# OpenOrbis is; CC_PS4 and LD_PS4 the clang and ld.lld of the LLVM its
+# release was built with. RIGHT_SPRX and SCE_MODULES, if set, are the
+# sce_sys/about/right.sprx and the sce_module folder to package (OpenOrbis's
+# piglet sample has both).
 set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -19,8 +21,10 @@ TITLE=ZSNES
 TITLE_ID=ZSNS00001
 CONTENT_ID=IV0000-${TITLE_ID}_00-ZSNESPS400000000
 VERSION=1.00
-CLANG=$(command -v clang || command -v clang-12)
-LLD=$(command -v ld.lld || command -v ld.lld-12)
+# The clang the OpenOrbis release was built with (CC_PS4, LD_PS4): its start
+# files and library stubs and these objects must come from one LLVM.
+CLANG=${CC_PS4:-$(command -v clang)}
+LLD=${LD_PS4:-$(command -v ld.lld)}
 # OpenOrbis's tools (create-fself, create-gp4, PkgTool.Core): on the PATH in
 # its image, or in bin/linux of the toolchain.
 tool() {
@@ -100,6 +104,16 @@ FILES="eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
 if [ -n "${RIGHT_SPRX:-}" ] && [ -f "$RIGHT_SPRX" ]; then
     cp "$RIGHT_SPRX" "$PKG/sce_sys/about/right.sprx"
     FILES="$FILES sce_sys/about/right.sprx"
+fi
+# The system modules OpenOrbis's samples ship beside their programs
+# (SCE_MODULES: a folder of .prx files, such as its piglet sample's).
+if [ -n "${SCE_MODULES:-}" ] && [ -d "$SCE_MODULES" ]; then
+    mkdir -p "$PKG/sce_module"
+    for m in "$SCE_MODULES"/*.prx; do
+        [ -f "$m" ] || continue
+        cp "$m" "$PKG/sce_module/"
+        FILES="$FILES sce_module/$(basename "$m")"
+    done
 fi
 
 echo "SFO param.sfo"
