@@ -218,14 +218,13 @@ static void checkpoint(char const* const step)
     LOG("step: %s", step);
 }
 
-/* A crash: what and where, in the log, then the system's own handling (the
-   error screen). fprintf is not safe in a signal handler in general; here
-   the program is ending anyway, and the log is all there will be. */
-static void on_crash(int const sig, siginfo_t* const info, void* const ctx)
+/* A crash: which signal, and the last step reached, in the log; then the
+   system's own handling (the error screen). fprintf is not safe in a
+   signal handler in general; here the program is ending anyway, and the log
+   is all there will be. */
+static void on_crash(int const sig)
 {
-    (void)ctx;
-    LOG("CRASH: signal %d (code %d) at address %p, after step \"%s\"", sig, info ? info->si_code : 0,
-        info ? info->si_addr : NULL, last_step);
+    LOG("CRASH: signal %d, after step \"%s\"", sig, last_step);
     signal(sig, SIG_DFL);
     raise(sig);
 }
@@ -233,15 +232,10 @@ static void on_crash(int const sig, siginfo_t* const info, void* const ctx)
 static void crash_handlers(void)
 {
     static int const sigs[] = { SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT };
-    struct sigaction sa;
     unsigned i;
 
-    memset(&sa, 0, sizeof sa);
-    sa.sa_sigaction = on_crash;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
     for (i = 0; i < sizeof sigs / sizeof sigs[0]; i++)
-        sigaction(sigs[i], &sa, NULL);
+        signal(sigs[i], on_crash);
 }
 
 /* Before the frontend reads its paths: settings, saves and the log in the
