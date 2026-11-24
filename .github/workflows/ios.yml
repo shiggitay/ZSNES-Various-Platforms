@@ -46,10 +46,11 @@ jobs:
           path: build-ios/zsnes-ios.ipa
           if-no-files-found: error
       # The .ipa on the ios-build branch as well, where git can fetch it
-      # (the artifact store is not reachable from everywhere). One runner
-      # does it; [skip ci] keeps the push from starting other builds.
+      # (the artifact store is not reachable from everywhere). Whichever
+      # runner gets there does it (both make the same app, and the other
+      # may never be given a Mac); [skip ci] keeps the push from starting
+      # other builds.
       - name: Push the .ipa to the ios-build branch
-        if: matrix.runner == 'macos-latest'
         run: |
           set -eu
           dir=$(mktemp -d)
