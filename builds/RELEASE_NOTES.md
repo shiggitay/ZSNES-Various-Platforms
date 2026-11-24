@@ -1,4 +1,4 @@
-ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC (classic Mac OS, Mac OS X, Linux, PlayStation 3), and the iPhone.
+ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC (classic Mac OS, Mac OS X, Linux, PlayStation 3), the PlayStation 4 and the iPhone.
 
 **Mac OS 8.6 to 9.2.2** - `zsnes-ppc-classic-macos.sit.hqx`
 - Double-click it: StuffIt Expander, included with Mac OS 8 and 9 (and what the browsers of the time hand downloads to), unpacks a "ZSNES PPC" folder with the application and its read me.
@@ -8,6 +8,10 @@ ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC (classic Mac OS, Mac OS X, Linux
 **Mac OS X 10.2 to 10.4 (PowerPC)** - `zsnes-ppc-macosx.sit.hqx`
 - A native Carbon application (not Classic), with the Mac OS 9 build's features: OpenGL video modes through Mac OS X's OpenGL, full screen with the menu bar and the Dock hidden, and the Video menu (Show FPS, Full Screen, Sync to Monitor).
 - Double-click it: StuffIt Expander unpacks a "ZSNES PPC" folder with the application and its read me. Keep the folder somewhere you can write to.
+
+**ZSNES for PS4 (GoldHEN)** - `zsnes-ps4.pkg`
+- Native PS4 homebrew: install it with GoldHEN's Package Installer and it appears on the home screen. ROMs go in /data/zsnes/roms or on a USB drive.
+- 1080p, 4:3, frames flipped on the vertical blank; DualShock 4s of the logged-in users play players 1 to 4 (Circle A, Cross B, Triangle X, Square Y, Options Start, touch pad Select); Options+touch pad or R3 opens the ZSNES menu, L3 toggles the frame counter.
 
 **ZSNES for PS3 (CFW or HEN)** - `zsnes-ps3.pkg`
 - Native PS3 homebrew on the Cell's PowerPC core: install it with Package Manager and it appears under Game in the XMB.

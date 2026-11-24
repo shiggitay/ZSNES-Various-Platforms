@@ -2,7 +2,7 @@
 
 <img align="right" width="128" height="128" alt="logo" src="img/128x128x32.png">
 
-ZSNES PPC is ZSNES for PowerPC Macs and the PlayStation 3, and the iPhone: a fork of
+ZSNES PPC is ZSNES for PowerPC Macs and the PlayStation 3, and for the PlayStation 4 and the iPhone: a fork of
 [xyproto/zsnes](https://github.com/xyproto/zsnes) (ZSNES 2, the C port) that
 runs on
 
@@ -15,6 +15,8 @@ runs on
 * **the PlayStation 3**, as native homebrew on the Cell's PowerPC core
   (`tools/build-ps3.sh`, PSL1GHT), with DualShock 3 pads for up to four
   players;
+* **the PlayStation 4** (GoldHEN), as native homebrew built with OpenOrbis
+  on GitHub's runners (`tools/build-ps4.sh`);
 * **the iPhone** (iOS 12 and later), with an on-screen controller and
   Bluetooth controllers, built by `tools/build-ios.sh` on GitHub's Mac
   runners; and

@@ -6,6 +6,7 @@ Ready-to-run builds of this repository. No ROMs are included.
 |---|---|---|
 | [zsnes-ppc-classic-macos.sit.hqx](zsnes-ppc-classic-macos.sit.hqx) | Mac OS 8.6 to 9.2.2, PowerPC | double-click it: StuffIt Expander (included with Mac OS 8 and 9) gives you a "ZSNES PPC" folder with the application and its read me |
 | [zsnes-ppc-macosx.sit.hqx](zsnes-ppc-macosx.sit.hqx) | Mac OS X 10.2 to 10.4, PowerPC (native Carbon application) | double-click it: StuffIt Expander (included with Mac OS X) gives you a "ZSNES PPC" folder with the application and its read me |
+| [zsnes-ps4.pkg](zsnes-ps4.pkg) | PlayStation 4 with GoldHEN | install with GoldHEN's Package Installer; ZSNES appears on the home screen; see [ps4/ReadMe.txt](../ps4/ReadMe.txt) |
 | [zsnes-ps3.pkg](zsnes-ps3.pkg) | PlayStation 3 with custom firmware or HEN | install with Package Manager; ZSNES appears under Game; see [ps3/ReadMe.txt](../ps3/ReadMe.txt) |
 | [zsnes-ios.ipa](zsnes-ios.ipa) | iPhone, iOS 12 and later (arm64) | the app, to sideload with AltStore, SideStore or Sideloadly (or TrollStore); see [ios/ReadMe.txt](../ios/ReadMe.txt) |
 | [zsnes-ppc32-linux.tar.gz](zsnes-ppc32-linux.tar.gz) | 32-bit PowerPC Linux (glibc 2.3, SDL 1.2, Linux 2.4 or 2.6) | `zsnes`, `README.txt`, `zsnes.png` and `install-launcher.sh` (a desktop and menu launcher with the icon) |
@@ -27,6 +28,11 @@ a Power Mac 8500 with a Buffalo G4/500 MHz upgrade and a Radeon 7000.
 Video menu and shortcuts as on Mac OS 9; full screen hides the menu bar and
 the Dock. OpenGL modes through Mac OS X's OpenGL. Keep the "ZSNES PPC" folder
 somewhere you can write to: settings and saves go next to the application.
+
+**PlayStation 4:** native homebrew made with OpenOrbis (GoldHEN). 1080p
+frames flipped on the vertical blank, 4:3; DualShock 4s of the logged-in users
+are players 1 to 4; Options+touch pad or R3 opens the menu, L3 the frame
+counter. Built on GitHub by the [PS4](../../actions/workflows/ps4.yml) workflow.
 
 **PlayStation 3:** native homebrew on the Cell's PowerPC core (PSL1GHT). The
 RSX scales the picture 4:3 to the PS3's resolution; DualShock 3 pads are
@@ -54,6 +60,7 @@ SHA-256:
 7aa4ae6e40b40407b3905056dcdea82fa6c0a142931d10abad7f34997a6997ee  zsnes-ppc-classic-macos.sit.hqx
 a5922e4bd9322551ac6b900af7d7ff59285eee32a2c23c240c83d65b9aae974a  zsnes-ppc-macosx.sit.hqx
 d4499dddd3e395dc3b698f1cefdc535f3b23989a03332d879f75e1d195c25a8f  zsnes-ps3.pkg
+9101e37ee94cbde3d3da7a6345c57d498752b1d0e23a120c3bef9fdaaf84424a  zsnes-ps4.pkg
 b3fea510b0a261052269e81d0051d873a519430e135a7429d6b904b0f9b9eddc  zsnes-ios.ipa
 cd91bcb23bdba94f0b56865c95bc197ff49da2108d49d6fe82a42c4c56a894b0  zsnes-ppc32-linux.tar.gz
 ```
