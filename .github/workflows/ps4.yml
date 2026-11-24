@@ -32,6 +32,11 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends clang-18 lld-18 python3 make
           clang-18 --version | head -1
+          # PkgTool.Core is built on an older .NET, which needs OpenSSL 1.1:
+          # Ubuntu 20.04's, beside this system's OpenSSL 3.
+          curl -fsSL -o /tmp/libssl1.1.deb \
+            http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          sudo dpkg -i /tmp/libssl1.1.deb
       # OpenOrbis's newest release, and which LLVM it was built with: the
       # objects, its start files and its library stubs must agree (a mix of
       # LLVMs made a package the PS4 called corrupted).
