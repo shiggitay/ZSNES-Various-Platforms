@@ -7,6 +7,8 @@
 
 #include <dirent.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -25,6 +27,13 @@ int ps4_closedir(DIR* dir);
 int ps4_dirfd(DIR* dir);
 int ps4_fstatat(int fd, char const* name, struct stat* st, int flag);
 int ps4_stat(char const* path, struct stat* st);
+/* The C library's realpath looks the path up through /proc, which the PS4
+   has none of: it failed for every ROM. This one works on the path's text
+   (from the current directory, "." and ".." taken out) and checks that the
+   result exists. fopen takes names from the current directory and logs
+   what it cannot open. */
+char* ps4_realpath(char const* path, char* resolved);
+FILE* ps4_fopen(char const* path, char const* mode);
 
 #define chdir ps4_chdir
 #define getcwd ps4_getcwd
@@ -35,5 +44,7 @@ int ps4_stat(char const* path, struct stat* st);
 #define dirfd ps4_dirfd
 #define fstatat ps4_fstatat
 #define stat(path, st) ps4_stat(path, st)
+#define realpath(path, resolved) ps4_realpath(path, resolved)
+#define fopen(path, mode) ps4_fopen(path, mode)
 
 #endif

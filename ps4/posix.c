@@ -4,6 +4,8 @@
 
 #undef chdir
 #undef getcwd
+#undef realpath
+#undef fopen
 
 #include <errno.h>
 #include <stdio.h>
@@ -224,4 +226,74 @@ int ps4_fstatat(int const fd, char const* const name, struct stat* const st, int
         return 0;
     }
     return -1;
+}
+
+/* Paths (see ps4/compat.h). */
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
+
+char* ps4_realpath(char const* const path, char* const resolved)
+{
+    char in[PATH_MAX * 2], out[PATH_MAX];
+    char* save = NULL;
+    char* part;
+    size_t len = 0;
+    struct stat st;
+
+    if (!path || !*path) {
+        errno = ENOENT;
+        return NULL;
+    }
+    full_path(in, sizeof in, path);
+    out[0] = '\0';
+    for (part = strtok_r(in, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+        if (!strcmp(part, "."))
+            continue;
+        if (!strcmp(part, "..")) {
+            char* const slash = strrchr(out, '/');
+
+            if (slash) {
+                *slash = '\0';
+                len = (size_t)(slash - out);
+            }
+            continue;
+        }
+        if (len + 1 + strlen(part) + 1 > sizeof out) {
+            errno = ENAMETOOLONG;
+            return NULL;
+        }
+        out[len++] = '/';
+        strcpy(out + len, part);
+        len += strlen(part);
+    }
+    if (!len)
+        strcpy(out, "/");
+    if (ps4_stat(out, &st) != 0) {
+        ps4_log("realpath %s: no such file", out);
+        return NULL;
+    }
+    if (resolved) {
+        strcpy(resolved, out); /* the callers' buffers are PATH_MAX long */
+        return resolved;
+    }
+    return strdup(out);
+}
+
+FILE* ps4_fopen(char const* const path, char const* const mode)
+{
+    char full[PATH_MAX];
+    FILE* f;
+
+    if (!path || !*path) {
+        errno = ENOENT;
+        return NULL;
+    }
+    full_path(full, sizeof full, path);
+    f = fopen(full, mode);
+    if (!f && mode[0] != 'r')
+        ps4_log("could not open %s (%s): errno %d", full, mode, errno);
+    else if (!f && errno != ENOENT)
+        ps4_log("could not read %s: errno %d", full, errno);
+    return f;
 }
