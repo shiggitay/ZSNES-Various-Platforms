@@ -54,3 +54,174 @@ char* ps4_getcwd(char* const buf, size_t const size)
     memcpy(buf, cwd, strlen(cwd) + 1);
     return buf;
 }
+
+/* Directories (see ps4/compat.h). */
+#include <fcntl.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <orbis/libkernel.h>
+
+#undef opendir
+#undef readdir
+#undef closedir
+#undef dirfd
+#undef fstatat
+#undef stat
+
+#define MAX_DIRS 16
+#define DIR_FD_BASE 0x4000
+
+struct ps4_dir {
+    int fd;
+    int len, pos;
+    char path[1024];
+    char buf[8192];
+    struct dirent ent;
+};
+
+static struct ps4_dir* dirs[MAX_DIRS];
+
+static void full_path(char* const out, size_t const size, char const* const path)
+{
+    if (path[0] == '/' || !cwd[0])
+        snprintf(out, size, "%s", path);
+    else
+        snprintf(out, size, "%s/%s", strcmp(cwd, "/") ? cwd : "", path);
+}
+
+int ps4_stat(char const* const path, struct stat* const st)
+{
+    char full[1024];
+    OrbisKernelStat ks;
+
+    if (!path || !*path) {
+        errno = ENOENT;
+        return -1;
+    }
+    full_path(full, sizeof full, path);
+    if (stat(full, st) == 0)
+        return 0;
+    if (sceKernelStat(full, &ks) != 0)
+        return -1;
+    memset(st, 0, sizeof *st);
+    st->st_mode = ks.st_mode;
+    st->st_size = ks.st_size;
+    st->st_uid = ks.st_uid;
+    st->st_gid = ks.st_gid;
+    st->st_mtime = ks.st_mtim.tv_sec;
+    return 0;
+}
+
+DIR* ps4_opendir(char const* const path)
+{
+    struct ps4_dir* d;
+    int i, fd;
+
+    for (i = 0; i < MAX_DIRS && dirs[i]; i++)
+        ;
+    if (i == MAX_DIRS) {
+        errno = EMFILE;
+        return NULL;
+    }
+    d = calloc(1, sizeof *d);
+    if (!d) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    full_path(d->path, sizeof d->path, path && *path ? path : ".");
+    fd = sceKernelOpen(d->path, 0x20000 /* O_DIRECTORY */ | 0 /* O_RDONLY */, 0);
+    if (fd < 0) {
+        ps4_log("opendir %s failed: 0x%08x", d->path, (unsigned)fd);
+        free(d);
+        errno = ENOENT;
+        return NULL;
+    }
+    d->fd = fd;
+    dirs[i] = d;
+    return (DIR*)d;
+}
+
+struct dirent* ps4_readdir(DIR* const dir)
+{
+    struct ps4_dir* const d = (struct ps4_dir*)dir;
+
+    for (;;) {
+        unsigned char const* e;
+        unsigned reclen, namlen;
+
+        if (d->pos >= d->len) {
+            int const n = sceKernelGetdents(d->fd, d->buf, sizeof d->buf);
+            if (n <= 0)
+                return NULL;
+            d->len = n;
+            d->pos = 0;
+        }
+        /* FreeBSD's dirent: fileno (4), reclen (2), type (1), namlen (1),
+           then the name. */
+        e = (unsigned char const*)d->buf + d->pos;
+        reclen = e[4] | e[5] << 8;
+        if (reclen < 8 || d->pos + (int)reclen > d->len) {
+            d->pos = d->len;
+            continue;
+        }
+        d->pos += reclen;
+        namlen = e[7];
+        if (*(uint32_t const*)e == 0 || namlen == 0)
+            continue;
+        if (namlen >= sizeof d->ent.d_name)
+            namlen = sizeof d->ent.d_name - 1;
+        memcpy(d->ent.d_name, e + 8, namlen);
+        d->ent.d_name[namlen] = '\0';
+        d->ent.d_type = e[6];
+        return &d->ent;
+    }
+}
+
+int ps4_closedir(DIR* const dir)
+{
+    struct ps4_dir* const d = (struct ps4_dir*)dir;
+    int i;
+
+    for (i = 0; i < MAX_DIRS; i++)
+        if (dirs[i] == d)
+            dirs[i] = NULL;
+    sceKernelClose(d->fd);
+    free(d);
+    return 0;
+}
+
+int ps4_dirfd(DIR* const dir)
+{
+    int i;
+
+    for (i = 0; i < MAX_DIRS; i++)
+        if (dirs[i] == (struct ps4_dir*)dir)
+            return DIR_FD_BASE + i;
+    errno = EBADF;
+    return -1;
+}
+
+int ps4_fstatat(int const fd, char const* const name, struct stat* const st, int const flag)
+{
+    char path[1280];
+    struct ps4_dir* d;
+    int const i = fd - DIR_FD_BASE;
+
+    (void)flag;
+    if (name[0] == '/')
+        return ps4_stat(name, st);
+    if (i < 0 || i >= MAX_DIRS || !(d = dirs[i])) {
+        errno = EBADF;
+        return -1;
+    }
+    snprintf(path, sizeof path, "%s/%s", strcmp(d->path, "/") ? d->path : "", name);
+    if (ps4_stat(path, st) == 0)
+        return 0;
+    /* Not one the PS4 will stat: listed by the type its directory gave. */
+    if (!strcmp(name, d->ent.d_name) && (d->ent.d_type == DT_DIR || d->ent.d_type == DT_REG)) {
+        memset(st, 0, sizeof *st);
+        st->st_mode = d->ent.d_type == DT_DIR ? S_IFDIR | 0777 : S_IFREG | 0666;
+        return 0;
+    }
+    return -1;
+}

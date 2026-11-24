@@ -172,6 +172,20 @@ static void system_init(void)
    PS4 lets homebrew write and FTP reach. */
 /* A notification in the corner of the screen: what the PS4 shows of a
    program before it has a picture, or when it has nowhere to write a log. */
+void ps4_log(char const* const fmt, ...)
+{
+    va_list ap;
+
+    if (!log_file)
+        return;
+    fputs("ps4: ", log_file);
+    va_start(ap, fmt);
+    vfprintf(log_file, fmt, ap);
+    va_end(ap);
+    fputc('\n', log_file);
+    fflush(log_file);
+}
+
 static void notify(char const* const fmt, ...)
 {
     OrbisNotificationRequest r;
