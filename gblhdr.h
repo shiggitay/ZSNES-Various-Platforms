@@ -84,6 +84,8 @@ however it's a static value that we can just define */
 #ifdef __UNIXSDL__
 #ifdef __linux__
 #include <asm/ioctls.h>
+#elif defined(ZSNES_PS4) /* FreeBSD's kernel, musl's headers */
+#include <sys/ioctl.h>
 #else
 #include <sys/filio.h>
 #endif

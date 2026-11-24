@@ -20,6 +20,8 @@
      (/data/zsnes/roms) or a USB drive (/mnt/usb0).
    - No threads for the frontend: as on Mac OS 9 and the PS3, its frame
      timer runs without one. */
+#include <sys/types.h> /* the BSD types the PS4's headers use, first */
+
 #include <orbis/AudioOut.h>
 #include <orbis/Pad.h>
 #include <orbis/SystemService.h>
@@ -768,7 +770,7 @@ static void pads_open(void)
     memset(&list, 0xFF, sizeof list);
     if (sceUserServiceGetLoginUserIdList(&list) != 0)
         return;
-    for (p = 0; p < PLAYERS && p < ORBIS_USER_SERVICE_MAX_LOGIN_USERS; p++) {
+    for (p = 0; p < PLAYERS && p < (int)(sizeof list.userId / sizeof list.userId[0]); p++) {
         int32_t const user = list.userId[p];
 
         if (user == pad_user[p] && pad_handle[p] >= 0)

@@ -1197,7 +1197,8 @@ struct SDL_AudioStream {
     zrs rs;
 };
 
-static struct SDL_AudioStream* the_stream;
+static struct SDL_AudioStream* the_stream; /* read and written atomically */
+static volatile int audio_in_block;        /* the thread is reading a stream */
 static u32 port_num;
 static audioPortConfig port_config;
 static sys_ppu_thread_t audio_thread_id;
@@ -1207,8 +1208,14 @@ static volatile int audio_running;
    missing. The port always plays stereo floats. */
 static void fill_block(float* const out)
 {
-    struct SDL_AudioStream* const s = the_stream;
+    struct SDL_AudioStream* s;
     int i;
+
+    /* Say it is reading before taking the pointer; zs3_DestroyAudioStream
+       clears the pointer before looking (both sequentially consistent), so
+       either it sees this block under way or this block sees no stream. */
+    __atomic_store_n(&audio_in_block, 1, __ATOMIC_SEQ_CST);
+    s = __atomic_load_n(&the_stream, __ATOMIC_SEQ_CST);
 
     for (i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
         float l = 0, r = 0;
@@ -1226,6 +1233,7 @@ static void fill_block(float* const out)
         out[i * 2] = l;
         out[i * 2 + 1] = r;
     }
+    __atomic_store_n(&audio_in_block, 0, __ATOMIC_SEQ_CST);
 }
 
 static void audio_thread(void* const arg)
@@ -1270,7 +1278,8 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
     (void)dev;
     (void)cb;
     (void)userdata;
-    if (!spec || spec->format != SDL_AUDIO_S16 || the_stream || spec->channels < 1 || spec->channels > 2)
+    if (!spec || spec->format != SDL_AUDIO_S16 || __atomic_load_n(&the_stream, __ATOMIC_SEQ_CST)
+        || spec->channels < 1 || spec->channels > 2)
         return NULL;
     if (!(s = (struct SDL_AudioStream*)calloc(1, sizeof *s)))
         return NULL;
@@ -1297,7 +1306,7 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
         LOG("audio port %u: %u blocks at %08x, input %d Hz %d channels", (unsigned)port_num,
             (unsigned)port_config.numBlocks, (unsigned)port_config.audioDataStart, spec->freq, spec->channels);
         audio_running = 1;
-        the_stream = s;
+        __atomic_store_n(&the_stream, s, __ATOMIC_SEQ_CST);
         if (sysThreadCreate(&audio_thread_id, audio_thread, NULL, 1000, 0x10000, THREAD_JOINABLE,
                 (char*)"ZSNES sound")
             != 0) {
@@ -1305,14 +1314,14 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
             audioPortStop(port_num);
             audioPortClose(port_num);
             set_error("Could not start the sound thread");
-            the_stream = NULL;
+            __atomic_store_n(&the_stream, NULL, __ATOMIC_SEQ_CST);
             if (s->resample)
                 zrs_free(&s->rs);
             free(s);
             return NULL;
         }
     }
-    the_stream = s;
+    __atomic_store_n(&the_stream, s, __ATOMIC_SEQ_CST);
     return s;
 }
 
@@ -1320,11 +1329,21 @@ bool zs3_ResumeAudioStreamDevice(SDL_AudioStream* const s) { return s != NULL; }
 
 void zs3_DestroyAudioStream(SDL_AudioStream* const s)
 {
-    if (!s || s != the_stream)
+    int spins = 0;
+
+    if (!s || s != __atomic_load_n(&the_stream, __ATOMIC_SEQ_CST))
         return;
     LOG("audio stream closed");
-    the_stream = NULL; /* the thread plays silence from here */
-    usleep(20000);     /* past a block it may be filling */
+    __atomic_store_n(&the_stream, NULL, __ATOMIC_SEQ_CST); /* silence from here */
+    /* A block takes microseconds and calls nothing that blocks, so this ends
+       as soon as the thread runs; freeing sooner could pull the ring out
+       from under it. */
+    while (__atomic_load_n(&audio_in_block, __ATOMIC_SEQ_CST)) {
+        sysUsleep(10);
+        spins++;
+    }
+    if (spins > 1000)
+        LOG("audio: waited %d ms for the sound thread", spins / 100);
     if (s->resample)
         zrs_free(&s->rs);
     free(s);
@@ -1390,12 +1409,14 @@ SDL_AudioDeviceID zs3_GetAudioStreamDevice(SDL_AudioStream* const s) { return s 
 
 bool zs3_GetAudioDeviceFormat(SDL_AudioDeviceID const dev, SDL_AudioSpec* const spec, int* const frames)
 {
-    if (!the_stream)
+    struct SDL_AudioStream* const s = __atomic_load_n(&the_stream, __ATOMIC_SEQ_CST);
+
+    if (!s)
         return false;
     if (spec) {
         spec->format = SDL_AUDIO_S16;
-        spec->channels = the_stream->channels;
-        spec->freq = the_stream->resample ? DEVICE_RATE : the_stream->in_freq;
+        spec->channels = s->channels;
+        spec->freq = s->resample ? DEVICE_RATE : s->in_freq;
     }
     if (frames)
         *frames = AUDIO_BLOCK_SAMPLES * 4;
