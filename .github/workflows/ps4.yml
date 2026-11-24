@@ -28,8 +28,18 @@ jobs:
       - name: Install tools
         run: |
           apt-get update -q
-          apt-get install -y -q --no-install-recommends python3 make git ca-certificates
+          apt-get install -y -q --no-install-recommends python3 make git ca-certificates curl
       - uses: actions/checkout@v4
+      # The image's "latest" is OpenOrbis v0.5 (2020), without create-fself
+      # and create-gp4; its clang and .NET serve, with a newer release.
+      - name: OpenOrbis v0.5.4
+        run: |
+          mkdir -p /opt/oo
+          curl -fsSL https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/v0.5.4.tar.gz |
+            tar -xz -C /opt/oo
+          ls /opt/oo /opt/oo/bin/linux
+          echo "OO_PS4_TOOLCHAIN=/opt/oo" >> "$GITHUB_ENV"
+          echo "/opt/oo/bin/linux" >> "$GITHUB_PATH"
       - name: OpenOrbis's right.sprx
         run: |
           git clone -q --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git /tmp/oo
