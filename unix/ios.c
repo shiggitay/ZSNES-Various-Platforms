@@ -177,6 +177,7 @@ enum { D_UP = 1, D_DOWN = 2, D_LEFT = 4, D_RIGHT = 8 };
    and a key is down while any of them holds it. */
 enum { SRC_TOUCH, SRC_PAD, SRC_STICK, SRC_COUNT };
 static unsigned char held[SRC_COUNT][C_COUNT];
+static int pointer_mode; /* the menus were last moved through with the stick */
 static unsigned char dirs[SRC_COUNT];
 
 static void set_key(unsigned const k, int const down)
@@ -205,18 +206,37 @@ static void refresh(void)
     set_key(pl1rightk, d & D_RIGHT);
 }
 
-/* Esc: in a game it opens the ZSNES menu, in the menu it goes back. */
-static void press_menu(int const down)
+/* A key as the keyboard would send it, through the frontend's own handling
+   (so the menus see it as typed, too). */
+static void push_key(SDL_Scancode const sc, SDL_Keycode const key, int const down)
 {
     SDL_Event e;
 
     memset(&e, 0, sizeof e);
     e.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
-    e.key.scancode = SDL_SCANCODE_ESCAPE;
-    e.key.key = SDLK_ESCAPE;
+    e.key.scancode = sc;
+    e.key.key = key;
     e.key.down = down != 0;
     SDL_PushEvent(&e);
 }
+
+/* Esc: in a game it opens the ZSNES menu, in the menu it goes back. */
+static void press_menu(int const down) { push_key(SDL_SCANCODE_ESCAPE, SDLK_ESCAPE, down); }
+
+/* A left click at the menus' pointer. */
+static void push_click(int const down)
+{
+    SDL_Event e;
+
+    memset(&e, 0, sizeof e);
+    e.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.down = down != 0;
+    e.button.clicks = 1;
+    SDL_PushEvent(&e);
+}
+
+static int in_menus(void) { return GUIOn || GUIOn2; }
 
 /* --- touches -------------------------------------------------------------- */
 
@@ -452,6 +472,36 @@ void ios_gamepad_button(SDL_JoystickID const which, int const button, int const 
     case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: d = D_RIGHT; break;
     default: return;
     }
+    /* In the ZSNES menus: A picks and B goes back. A picks the way the menus
+       were last moved through - after the left stick, it clicks where the
+       pointer is; after the d-pad, it is Return on what is highlighted -
+       so it never does both at once. What a press started, its release
+       ends, wherever the menus are by then. */
+    if (c == C_A || c == C_B) {
+        static int action[2]; /* 0 the game's button, 1 Return or Esc, 2 click */
+        int* const a = &action[c == C_B];
+
+        if (down) {
+            *a = !in_menus() ? 0 : c == C_B ? 1 : pointer_mode ? 2 : 1;
+        }
+        if (*a == 1 && c == C_A) {
+            push_key(SDL_SCANCODE_RETURN, SDLK_RETURN, down);
+        } else if (*a == 1) {
+            press_menu(down);
+        } else if (*a == 2) {
+            push_click(down);
+        }
+        if (*a) {
+            held[SRC_PAD][c] = 0;
+            if (!down)
+                *a = 0;
+            refresh();
+            return;
+        }
+    }
+    if (d && down && in_menus())
+        pointer_mode = 0; /* the d-pad moves the highlight */
+
     if (c >= 0)
         held[SRC_PAD][c] = (unsigned char)(down != 0);
     else if (down)
@@ -485,23 +535,78 @@ void ios_gamepad_button(SDL_JoystickID const which, int const button, int const 
         if (chord && !select)
             held[SRC_PAD][C_START] = 0;
     }
+    /* In the menus Start and Select are only the chord: SNES Start is the
+       Return key by default, and would pick menu items otherwise. */
+    if (in_menus()) {
+        held[SRC_PAD][C_START] = 0;
+        held[SRC_PAD][C_SELECT] = 0;
+    }
     refresh();
 }
 
-/* The left stick as the d-pad, past half way. */
+/* The left stick: the d-pad in a game (past half way), the pointer in the
+   menus (ios_pointer_motion). */
+static float stick_x, stick_y;
+
+static void stick_dirs(void)
+{
+    unsigned char d = 0;
+
+    if (!in_menus()) {
+        if (stick_x < -0.5f)
+            d |= D_LEFT;
+        else if (stick_x > 0.5f)
+            d |= D_RIGHT;
+        if (stick_y < -0.5f)
+            d |= D_UP;
+        else if (stick_y > 0.5f)
+            d |= D_DOWN;
+    }
+    if (d != dirs[SRC_STICK]) {
+        dirs[SRC_STICK] = d;
+        refresh();
+    }
+}
+
 void ios_gamepad_axis(int const axis, int const value)
 {
-    unsigned char const lo = axis == SDL_GAMEPAD_AXIS_LEFTX ? D_LEFT : D_UP;
-    unsigned char const hi = axis == SDL_GAMEPAD_AXIS_LEFTX ? D_RIGHT : D_DOWN;
+    float const v = (float)value / 32767.0f;
 
-    if (axis != SDL_GAMEPAD_AXIS_LEFTX && axis != SDL_GAMEPAD_AXIS_LEFTY)
+    if (axis == SDL_GAMEPAD_AXIS_LEFTX)
+        stick_x = v;
+    else if (axis == SDL_GAMEPAD_AXIS_LEFTY)
+        stick_y = v;
+    else
         return;
-    dirs[SRC_STICK] &= (unsigned char)~(lo | hi);
-    if (value < -16384)
-        dirs[SRC_STICK] |= lo;
-    else if (value > 16384)
-        dirs[SRC_STICK] |= hi;
-    refresh();
+    stick_dirs();
+}
+
+int ios_pointer_motion(float* const dx, float* const dy)
+{
+    static Uint64 last;
+    Uint64 const now = SDL_GetTicksNS();
+    float const dt = last ? (float)(now - last) / 1e9f : 0.0f;
+    float const m = sqrtf(stick_x * stick_x + stick_y * stick_y);
+    float speed;
+
+    last = now;
+    /* Only with a controller connected: one that went away mid-tilt leaves
+       nothing behind, and touches and keys work as they always do. */
+    if (!SDL_HasGamepad()) {
+        stick_x = stick_y = 0.0f;
+        pointer_mode = 0;
+    }
+    stick_dirs(); /* the menus may have opened or closed under a held stick */
+    if (!in_menus() || m < 0.2f || dt <= 0.0f || dt > 0.25f)
+        return 0;
+    pointer_mode = 1;
+    /* Slow near the middle for aiming, about a picture's width in a second
+       at full tilt. */
+    speed = (m - 0.2f) / 0.8f;
+    speed = speed * speed * 1.1f / m;
+    *dx = stick_x * speed * dt;
+    *dy = stick_y * speed * dt * (4.0f / 3.0f); /* the picture is 4:3 */
+    return 1;
 }
 
 /* --- drawing -------------------------------------------------------------- */

@@ -26,6 +26,11 @@ int ios_touch(SDL_Event const* e, float* fx, float* fy, int* phase);
 void ios_gamepad_button(SDL_JoystickID which, int button, int down);
 void ios_gamepad_axis(int axis, int value);
 
+/* In the menus, the left stick moves the pointer: how far since the last
+   call, as a fraction of the picture's width and height. 0 when it is not
+   moving it. */
+int ios_pointer_motion(float* dx, float* dy);
+
 /* The app is going to the background, where iOS may end it unasked. */
 void ios_background(void);
 

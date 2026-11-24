@@ -44,9 +44,16 @@ and the on-screen controls hide until it is disconnected:
   are L and R; Menu/Options is Start, View/Share is Select.
 The d-pad or the left stick moves. Start and Select together (+ and - on a
 Switch Pro Controller) open the ZSNES menu; so does the Home button, where
-iOS lets it through, and a tap at the top middle of the screen. A Bluetooth keyboard works as on a computer: the arrow
-keys, X = A, Z = B, S = X, A = Y, D/C = L/R, Return = Start, Right Shift =
-Select, Esc for the menu, Ctrl-F for the frame counter.
+iOS lets it through, and a tap at the top middle of the screen.
+
+In the ZSNES menus, with a controller connected:
+    Left stick         moves the pointer
+    A                  clicks where the pointer is, after the stick moved
+                       it; picks what is highlighted, after the d-pad did
+    B                  back
+    D-pad              moves the highlight
+Start and Select only open and close the menu there. Without a controller,
+taps and keys work in the menus as before.
 
 VIDEO AND SOUND
 The picture is drawn 4:3, as tall as the screen, by the graphics processor

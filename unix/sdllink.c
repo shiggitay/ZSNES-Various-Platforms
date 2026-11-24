@@ -915,6 +915,38 @@ int Main_Proc(void)
             break;
         }
     }
+#ifdef ZSNES_IOS
+    {
+        /* A controller's left stick moves the menus' pointer. */
+        static float fx, fy;
+        float dx, dy;
+
+        if (ios_pointer_motion(&dx, &dy)) {
+            int ix, iy;
+
+            fx += dx * (float)(MouseMaxX - MouseMinX);
+            fy += dy * (float)(MouseMaxY - MouseMinY);
+            ix = (int)fx;
+            iy = (int)fy;
+            fx -= (float)ix;
+            fy -= (float)iy;
+            MouseX += ix;
+            MouseY += iy;
+            if (MouseX < MouseMinX) {
+                MouseX = MouseMinX;
+            }
+            if (MouseX > MouseMaxX) {
+                MouseX = MouseMaxX;
+            }
+            if (MouseY < MouseMinY) {
+                MouseY = MouseMinY;
+            }
+            if (MouseY > MouseMaxY) {
+                MouseY = MouseMaxY;
+            }
+        }
+    }
+#endif
 
     return TRUE;
 }
