@@ -39,7 +39,12 @@ SRCS=$(make -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' z
 SRCS="$SRCS ps3/ps3.c ps3/posix.c macos9/safelib.c macos9/net_stub.c mmlib/linux.c"
 
 DEFS="-DZSNES_PS3 -D__UNIXSDL__ -DZSNES_SDL12 -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
-CFLAGS="-std=gnu11 -O2 -mcpu=cell -mhard-float -fmodulo-sched -ffunction-sections -fdata-sections \
+# -mstrict-align: no load or store wider than the alignment the compiler can
+# prove. The core reads SNES memory at any byte offset (unaligned.h), which
+# compilers fold into single wide (on PowerPC, byte-reversed) loads; Linux
+# fixes up the ones that straddle a boundary, but the PS3's system software
+# does not, and the program dies. Byte loads instead, wherever unsure.
+CFLAGS="-std=gnu11 -O2 -mcpu=cell -mhard-float -mstrict-align -ffunction-sections -fdata-sections \
  -fno-strict-aliasing -Wall -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable \
  -Wno-unused-but-set-variable -Wno-char-subscripts -Werror=implicit-function-declaration \
  -I$ROOT/ps3/include -I$OUT -I$PSL1GHT/ppu/include -I$PSL1GHT/ppu/include/simdmath \

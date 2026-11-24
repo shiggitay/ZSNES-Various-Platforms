@@ -215,6 +215,7 @@ static u32 depth_off;
 static u32* tex[2];
 static u32 tex_off[2];
 static int cur_fb, cur_tex, first_flip = 1, video_ready;
+static unsigned frames_shown;
 static u32 label_val = 1;
 
 static void wait_rsx_idle(void)
@@ -314,10 +315,24 @@ static void video_stop(void)
     }
 }
 
+
+/* The last frame's flip. Logged when it takes over a second: a hung RSX
+   (a command it refused) shows as a frozen picture, and the log then says
+   so rather than leaving it to guesswork. */
 static void wait_flip(void)
 {
-    while (gcmGetFlipStatus() != 0)
-        usleep(200);
+    uint64_t const start = microseconds();
+    int noted = 0;
+
+    while (gcmGetFlipStatus() != 0) {
+        sysUsleep(200);
+        if (!noted && microseconds() - start > 1000000u) {
+            LOG("RSX: a flip has not finished after a second");
+            noted = 1;
+        }
+    }
+    if (noted)
+        LOG("RSX: the flip finished after %u ms", (unsigned)((microseconds() - start) / 1000u));
     gcmResetFlipStatus();
 }
 
@@ -695,6 +710,16 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
             o[x] = lut32[in[x]];
     }
     show(w, h);
+    frames_shown++;
+    {
+        static int last_w, last_h;
+
+        if (w != last_w || h != last_h) {
+            LOG("picture %dx%d", w, h);
+            last_w = w;
+            last_h = h;
+        }
+    }
     return true;
 }
 
@@ -1067,7 +1092,9 @@ void zs3_PumpEvents(void)
     frames_seen++;
     if (now >= next_note) {
         if (next_note)
-            LOG("alive: %u polls in 10 s, menus %s", frames_seen, in_menus() ? "open" : "closed");
+            LOG("alive: %u frames shown and %u polls in 10 s, menus %s", frames_shown, frames_seen,
+                in_menus() ? "open" : "closed");
+        frames_shown = 0;
         frames_seen = 0;
         next_note = now + 10000000u;
     }
@@ -1215,7 +1242,7 @@ static void audio_thread(void* const arg)
             fill_block(data + (size_t)w * 2 * AUDIO_BLOCK_SAMPLES);
             w = (w + 1) % PORT_BLOCKS;
         } else {
-            usleep(1000);
+            sysUsleep(1000);
         }
     }
     sysThreadExit(0);
@@ -1271,7 +1298,7 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
             (unsigned)port_config.numBlocks, (unsigned)port_config.audioDataStart, spec->freq, spec->channels);
         audio_running = 1;
         the_stream = s;
-        if (sysThreadCreate(&audio_thread_id, audio_thread, NULL, 1000, 0x4000, THREAD_JOINABLE,
+        if (sysThreadCreate(&audio_thread_id, audio_thread, NULL, 1000, 0x10000, THREAD_JOINABLE,
                 (char*)"ZSNES sound")
             != 0) {
             audio_running = 0;
@@ -1295,6 +1322,7 @@ void zs3_DestroyAudioStream(SDL_AudioStream* const s)
 {
     if (!s || s != the_stream)
         return;
+    LOG("audio stream closed");
     the_stream = NULL; /* the thread plays silence from here */
     usleep(20000);     /* past a block it may be filling */
     if (s->resample)
