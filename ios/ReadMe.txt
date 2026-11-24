@@ -52,7 +52,8 @@ In the ZSNES menus, with a controller connected:
                        it; picks what is highlighted, after the d-pad did
     B                  back
     D-pad              moves the highlight
-Start and Select only open and close the menu there. Without a controller,
+Start and Select do nothing there: together they only summon the menu
+during a game, and B leaves it. Without a controller,
 taps and keys work in the menus as before.
 
 VIDEO AND SOUND

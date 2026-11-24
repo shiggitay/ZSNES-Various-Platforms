@@ -509,8 +509,9 @@ void ios_gamepad_button(SDL_JoystickID const which, int const button, int const 
     else
         dirs[SRC_PAD] &= (unsigned char)~d;
 
-    /* Start+Select together: the ZSNES menu, held as Esc until either is
-       let go, and neither reaches the game meanwhile. A controller's Home
+    /* Start+Select together (+ and - on a Switch Pro Controller): the ZSNES
+       menu, held as Esc until either is let go, and neither reaches the
+       game meanwhile. A controller's Home
        button may be kept by iOS for itself, so this is the sure way. */
     {
         static unsigned char start, select, chord;
@@ -519,12 +520,16 @@ void ios_gamepad_button(SDL_JoystickID const which, int const button, int const 
             start = (unsigned char)(down != 0);
         if (button == SDL_GAMEPAD_BUTTON_BACK)
             select = (unsigned char)(down != 0);
+        /* Only to summon the menu, from a game; in the menus B goes back.
+           chord 2: pressed together in the menus, which does nothing. */
         if (start && select && !chord) {
-            chord = 1;
-            press_menu(1);
+            chord = in_menus() ? 2 : 1;
+            if (chord == 1)
+                press_menu(1);
         } else if (chord && !(start && select)) {
+            if (chord == 1)
+                press_menu(0);
             chord = 0;
-            press_menu(0);
         }
         if (chord || (start && select)) {
             held[SRC_PAD][C_START] = 0;
@@ -535,8 +540,8 @@ void ios_gamepad_button(SDL_JoystickID const which, int const button, int const 
         if (chord && !select)
             held[SRC_PAD][C_START] = 0;
     }
-    /* In the menus Start and Select are only the chord: SNES Start is the
-       Return key by default, and would pick menu items otherwise. */
+    /* In the menus Start and Select do nothing: SNES Start is the Return
+       key by default, and would pick menu items otherwise. */
     if (in_menus()) {
         held[SRC_PAD][C_START] = 0;
         held[SRC_PAD][C_SELECT] = 0;
