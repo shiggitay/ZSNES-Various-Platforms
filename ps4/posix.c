@@ -101,10 +101,10 @@ int ps4_stat(char const* const path, struct stat* const st)
         return -1;
     }
     full_path(full, sizeof full, path);
-    if (stat(full, st) == 0)
-        return 0;
+    /* The kernel's own call first: its structure is the kernel's, where the
+       C library's might not match the headers ZSNES is built with. */
     if (sceKernelStat(full, &ks) != 0)
-        return -1;
+        return stat(full, st);
     memset(st, 0, sizeof *st);
     st->st_mode = ks.st_mode;
     st->st_size = ks.st_size;

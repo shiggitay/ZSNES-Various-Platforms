@@ -788,15 +788,22 @@ void loadFile(char* filename)
 
     for (;;) {
         struct stat stat_results;
-        stat_dir(ZRomPath, filename, &stat_results);
+        FILE* fp = fopen_dir(ZRomPath, filename, "rb");
+        long size;
+
+        if (!fp) {
+            return;
+        }
+        /* The size from the open file: stat_dir's result went unchecked, so
+           a failed stat left the size as whatever was on the stack, and the
+           ROM was skipped as too big without a word. */
+        if (fseek(fp, 0, SEEK_END) != 0 || (size = ftell(fp)) < 0 || fseek(fp, 0, SEEK_SET) != 0) {
+            fclose(fp);
+            return;
+        }
+        stat_results.st_size = size;
 
         if ((uint32_t)stat_results.st_size <= maxromspace + 512 - curromspace) {
-            FILE* fp = 0;
-            fp = fopen_dir(ZRomPath, filename, "rb");
-
-            if (!fp) {
-                return;
-            }
 
             if (curromspace && ((stat_results.st_size & 0x7FFF) == 512)) {
                 stat_results.st_size -= 512;
@@ -814,6 +821,7 @@ void loadFile(char* filename)
 
             (*incrementer)++;
         } else {
+            fclose(fp);
             return;
         }
     }
@@ -1147,6 +1155,9 @@ void loadROM(void)
 
     Header512 = false;
 
+#ifdef ZSNES_PS4
+    ps4_log("ROM %s%s: %u bytes", ZRomPath, ZCartName, (unsigned)curromspace);
+#endif
     if (!curromspace) {
         return;
     }
