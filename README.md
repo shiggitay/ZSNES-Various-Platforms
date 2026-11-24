@@ -2,7 +2,7 @@
 
 <img align="right" width="128" height="128" alt="logo" src="img/128x128x32.png">
 
-ZSNES PPC is ZSNES for PowerPC Macs, and the iPhone: a fork of
+ZSNES PPC is ZSNES for PowerPC Macs and the PlayStation 3, and the iPhone: a fork of
 [xyproto/zsnes](https://github.com/xyproto/zsnes) (ZSNES 2, the C port) that
 runs on
 
@@ -12,6 +12,9 @@ runs on
   Command-Return);
 * **Mac OS X on PowerPC**, as a native Carbon application with the same
   features, the menu bar and the Dock hidden in full screen;
+* **the PlayStation 3**, as native homebrew on the Cell's PowerPC core
+  (`tools/build-ps3.sh`, PSL1GHT), with DualShock 3 pads for up to four
+  players;
 * **the iPhone** (iOS 12 and later), with an on-screen controller and
   Bluetooth controllers, built by `tools/build-ios.sh` on GitHub's Mac
   runners; and
@@ -285,6 +288,26 @@ X's window buffer, and hides the menu bar and the Dock in full screen through
 `SetSystemUIMode`, found at run time in the Carbon framework. It also carries
 a Mac OS X icon family (`macos9/icns.r`, from `tools/mkicns.py`).
 `tools/package-release.sh` makes the three packages in `builds/`.
+
+### PlayStation 3 (homebrew, CFW or HEN)
+
+`tools/build-ps3.sh` builds ZSNES as PS3 homebrew with
+[PSL1GHT](https://github.com/ps3dev/PSL1GHT) and leaves an installable
+`build-ps3/zsnes-ppc-ps3.pkg`:
+
+```sh
+git clone https://github.com/ps3dev/ps3toolchain
+cd ps3toolchain && PS3DEV=$HOME/ps3dev ./toolchain.sh 1 2 4 5 6 8 && cd ../zsnes
+PS3DEV=$HOME/ps3dev tools/build-ps3.sh
+```
+
+The frontend is the Unix one built for SDL 1.2's set of calls, which
+`ps3/ps3.c` provides on the PS3's own libraries: the RSX scales each frame to
+the output resolution, the pads go straight to the players' keys, and a 48 kHz
+audio port is fed by a thread. `ps3/posix.c` fills in what PSL1GHT's newlib
+lacks. The core runs on the Cell's PPU, 64-bit big-endian; `make CPU=ppc
+BITS=64` builds the same core for 64-bit PowerPC Linux, which is how it was
+checked against x86.
 
 ### Pull requests
 

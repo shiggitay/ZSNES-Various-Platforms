@@ -1,4 +1,4 @@
-ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs (classic Mac OS, Mac OS X, Linux), and the iPhone.
+ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC (classic Mac OS, Mac OS X, Linux, PlayStation 3), and the iPhone.
 
 **Mac OS 8.6 to 9.2.2** - `zsnes-ppc-classic-macos.sit.hqx`
 - Double-click it: StuffIt Expander, included with Mac OS 8 and 9 (and what the browsers of the time hand downloads to), unpacks a "ZSNES PPC" folder with the application and its read me.
@@ -8,6 +8,10 @@ ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs (classic Mac OS, Mac OS X, 
 **Mac OS X 10.2 to 10.4 (PowerPC)** - `zsnes-ppc-macosx.sit.hqx`
 - A native Carbon application (not Classic), with the Mac OS 9 build's features: OpenGL video modes through Mac OS X's OpenGL, full screen with the menu bar and the Dock hidden, and the Video menu (Show FPS, Full Screen, Sync to Monitor).
 - Double-click it: StuffIt Expander unpacks a "ZSNES PPC" folder with the application and its read me. Keep the folder somewhere you can write to.
+
+**PlayStation 3 (CFW or HEN)** - `zsnes-ppc-ps3.pkg`
+- Native PS3 homebrew on the Cell's PowerPC core: install it with Package Manager and it appears under Game in the XMB.
+- The RSX scales the picture 4:3 to the PS3's output resolution; DualShock 3 pads play players 1 to 4 with no setting up (Circle A, Cross B, Triangle X, Square Y); Start+Select opens the ZSNES menu, L3 toggles the frame counter, and in the menus the stick moves the pointer, Cross picks and Circle goes back. A USB keyboard works too.
 
 **iPhone (iOS 12 and later)** - `zsnes-ios.ipa`
 - Sideload it with AltStore, SideStore or Sideloadly (or TrollStore where it runs); ROMs go in ZSNES's folder in the Files app.

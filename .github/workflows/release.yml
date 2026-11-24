@@ -3,7 +3,7 @@
 # commit it runs on, or, if the release exists, moves the tag to the commit,
 # updates its text, replaces its files and removes files no longer in builds/.
 # The text is builds/RELEASE_NOTES.md; the files are the
-# packages in builds/ (*.tar.gz, *.hqx, *.ipa).
+# packages in builds/ (*.tar.gz, *.hqx, *.ipa, *.pkg).
 name: Release
 
 on:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -eu
           shopt -s nullglob
-          assets=(builds/*.tar.gz builds/*.hqx builds/*.ipa)
+          assets=(builds/*.tar.gz builds/*.hqx builds/*.ipa builds/*.pkg)
           if [ ${#assets[@]} -eq 0 ]; then
             echo "No packages in builds/" >&2
             exit 1

@@ -29,3 +29,10 @@ zsnesl.cfg
 build-ydl/
 build-ydl-sysroot/
 build-*/
+zsnes-ppc64
+zsnes-x86dbg
+build-ppc64/
+build-x86dbg/
+build-ps3/
+build-macos9-carbon/
+build-ios/
