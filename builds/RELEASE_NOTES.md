@@ -11,7 +11,7 @@ ZSNES PPC 1.0: ZSNES 2 (the C port) for PowerPC Macs (classic Mac OS, Mac OS X, 
 
 **iPhone (iOS 12 and later)** - `zsnes-ppc-ios.ipa`
 - Sideload it with AltStore, SideStore or Sideloadly (or TrollStore where it runs); ROMs go in ZSNES's folder in the Files app.
-- An on-screen SNES controller beside the 4:3 picture, with MENU and FPS buttons. A Bluetooth controller works as player 1 straight away and hides the on-screen controls: a Switch Pro Controller by its letters, Xbox and PlayStation pads by position; Start+Select opens the ZSNES menu.
+- An on-screen SNES controller beside the 4:3 picture, with MENU and FPS buttons. A Bluetooth controller works as player 1 straight away and hides the on-screen controls: a Switch Pro Controller by its letters, Xbox and PlayStation pads by position; Start+Select (+ and - on a Switch Pro) opens the ZSNES menu; there the left stick moves the pointer, A clicks or picks and B goes back.
 - The battery save and settings are written whenever the app goes to the background.
 
 **32-bit PowerPC Linux** - `zsnes-ppc32-linux.tar.gz`

@@ -46,7 +46,7 @@ SHA-256:
 ```
 7aa4ae6e40b40407b3905056dcdea82fa6c0a142931d10abad7f34997a6997ee  zsnes-ppc-classic-macos.sit.hqx
 a5922e4bd9322551ac6b900af7d7ff59285eee32a2c23c240c83d65b9aae974a  zsnes-ppc-macosx.sit.hqx
-1e9b8f0e9eddc81c09a6a693d45a92ff14c048a50a47499dbfc0232df16f0252  zsnes-ppc-ios.ipa
+b3fea510b0a261052269e81d0051d873a519430e135a7429d6b904b0f9b9eddc  zsnes-ppc-ios.ipa
 cd91bcb23bdba94f0b56865c95bc197ff49da2108d49d6fe82a42c4c56a894b0  zsnes-ppc32-linux.tar.gz
 ```
 
