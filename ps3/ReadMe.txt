@@ -56,6 +56,11 @@ WHAT IS NOT THERE YET
 - The PS button opens the XMB's own menu, as in any PS3 game; quitting
   from it saves the game's battery save as quitting from ZSNES does.
 
+IF IT CRASHES
+ZSNES writes what it is doing to "ZSNES Log.txt" in its folder,
+/dev_hdd0/game/ZSNE00001/USRDIR; fetch it over FTP (webMAN, multiMAN) after
+a crash and include it with the report: its last lines say how far it got.
+
 ABOUT ZSNES FOR PS3
 ZSNES for PS3 comes from ZSNES PPC, ZSNES for PowerPC: a fork of ZSNES 2,
 Alexander F. Rodseth's C port of ZSNES (github.com/xyproto/zsnes), here as a

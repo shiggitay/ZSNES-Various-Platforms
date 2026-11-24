@@ -40,6 +40,9 @@
 
 SYS_PROCESS_PARAM(1001, 0x100000);
 
+/* A line in "ZSNES Log.txt" (see ps3_setup). */
+#define LOG(...) (printf("ps3: " __VA_ARGS__), putchar('\n'))
+
 /* The emulator's key state (cpu/execute.h, which this file cannot include:
    its u8 is 8 bytes and PSL1GHT's 8 bits). */
 #define PRESSED_SIZE (256 + 128 + 64)
@@ -120,8 +123,10 @@ static void sysutil_callback(u64 const status, u64 const param, void* const data
 {
     (void)param;
     (void)data;
-    if (status == SYSUTIL_EXIT_GAME)
+    if (status == SYSUTIL_EXIT_GAME) {
+        LOG("the XMB asks to quit");
         quit_requested = 1;
+    }
 }
 
 static void audio_stop(void);
@@ -167,7 +172,17 @@ void ps3_setup(char const* const argv0)
         if (chdir(dir) != 0)
             perror(dir);
     }
+    /* What ZSNES prints, and this file's own notes, in "ZSNES Log.txt" in
+       USRDIR, written as it goes so a crash leaves it complete: the PS3
+       shows a program no console. */
+    if (freopen("ZSNES Log.txt", "w", stdout)) {
+        setvbuf(stdout, NULL, _IONBF, 0);
+        if (freopen("ZSNES Log.txt", "a", stderr))
+            setvbuf(stderr, NULL, _IONBF, 0);
+    }
+    printf("ZSNES for PS3, started from %s\n", argv0 ? argv0 : "?");
 }
+
 
 bool zs3_Init(Uint32 const flags)
 {
@@ -266,6 +281,7 @@ static int video_start(void)
 
     disp_w = res.width;
     disp_h = res.height;
+    LOG("video %ux%u (resolution id %d)", (unsigned)disp_w, (unsigned)disp_h, (int)state.displayMode.resolution);
     color_pitch = disp_w * sizeof(u32);
     depth_pitch = disp_w * sizeof(u32);
     for (i = 0; i < 2; i++) {
@@ -284,6 +300,8 @@ static int video_start(void)
     rsxAddressToOffset(depth_buf, &depth_off);
     set_render_target(cur_fb);
     video_ready = 1;
+    LOG("RSX ready: frame buffers at %08x %08x, picture buffers at %08x %08x", (unsigned)color_off[0],
+        (unsigned)color_off[1], (unsigned)tex_off[0], (unsigned)tex_off[1]);
     return 1;
 }
 
@@ -327,8 +345,18 @@ static void show(int const w, int const h)
     float const ox = ((float)disp_w - out_w) / 2.0f;
     int const linear = BilinearFilter && !in_menus();
 
-    /* Sync to the TV with ZSNES's VSync setting; a late frame waits then. */
-    gcmSetFlipMode(vsyncon ? GCM_FLIP_VSYNC : GCM_FLIP_HSYNC);
+    /* Sync to the TV with ZSNES's VSync setting; a late frame waits then.
+       Set only when it changes. */
+    {
+        static int mode = -1;
+        int const want = vsyncon ? 1 : 0;
+
+        if (want != mode) {
+            mode = want;
+            gcmSetFlipMode(want ? GCM_FLIP_VSYNC : GCM_FLIP_HSYNC);
+            LOG("vsync %s", want ? "on" : "off");
+        }
+    }
     rsxSetClearColor(ctx, 0);
     rsxClearSurface(ctx, GCM_CLEAR_R | GCM_CLEAR_G | GCM_CLEAR_B | GCM_CLEAR_A);
 
@@ -579,6 +607,7 @@ SDL_Window* zs3_CreateWindow(char const* const title, int const w, int const h, 
     win->w = w;
     win->h = h;
     win->fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+    LOG("window %dx%d", w, h);
     if (!make_surface(win)) {
         set_error("Out of memory for the screen");
         return NULL;
@@ -605,6 +634,7 @@ bool zs3_SetWindowSize(SDL_Window* const win, int const w, int const h)
         return true;
     win->w = w;
     win->h = h;
+    LOG("window size %dx%d", w, h);
     return make_surface(win);
 }
 
@@ -1029,6 +1059,18 @@ static void keyboard_poll(void)
 
 void zs3_PumpEvents(void)
 {
+    static uint64_t next_note;
+    static unsigned frames_seen;
+    uint64_t const now = microseconds();
+
+    /* Every ten seconds: still running, and how fast frames are coming. */
+    frames_seen++;
+    if (now >= next_note) {
+        if (next_note)
+            LOG("alive: %u polls in 10 s, menus %s", frames_seen, in_menus() ? "open" : "closed");
+        frames_seen = 0;
+        next_note = now + 10000000u;
+    }
     system_init();
     sysUtilCheckCallback();
     pads_poll();
@@ -1225,6 +1267,8 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
         }
         memset((void*)(uintptr_t)port_config.audioDataStart, 0, port_config.portSize);
         audioPortStart(port_num);
+        LOG("audio port %u: %u blocks at %08x, input %d Hz %d channels", (unsigned)port_num,
+            (unsigned)port_config.numBlocks, (unsigned)port_config.audioDataStart, spec->freq, spec->channels);
         audio_running = 1;
         the_stream = s;
         if (sysThreadCreate(&audio_thread_id, audio_thread, NULL, 1000, 0x4000, THREAD_JOINABLE,
