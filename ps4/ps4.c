@@ -704,6 +704,7 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
     SDL_Surface const* src;
     u32* buf;
     int x, y, w, h, prev_sy = -1;
+    uint64_t draw_start;
 
     if (!win || !win->surface.pixels || !video_ready)
         return false;
@@ -734,26 +735,29 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
     }
 
     wait_buffer();
+    draw_start = microseconds();
     buf = fb[fb_next];
     if (!fb_clean[fb_next]) {
         memset(buf, 0, (size_t)DISP_W * DISP_H * 4);
         fb_clean[fb_next] = 1;
     }
-    /* Nearest-neighbour: each source row converted once, into the first
-       screen row that shows it, and copied into the rows that repeat it. */
+    /* Nearest-neighbour: each source row converted once, into a row in
+       ordinary memory, and copied to every screen row that shows it. The
+       screen buffers are write-combined video memory, which the CPU only
+       writes to: reading a row back from one (copying the row above) is
+       uncached and made a frame take about 100 ms. */
     for (y = 0; y < OUT_H; y++) {
-        u32* const o = buf + (size_t)y * DISP_W + OUT_X;
+        static u32 row[OUT_W];
         int const sy = ymap[y];
 
-        if (sy == prev_sy) {
-            memcpy(o, o - DISP_W, OUT_W * 4);
-        } else {
+        if (sy != prev_sy) {
             Uint16 const* const in = (Uint16 const*)((Uint8 const*)src->pixels + (size_t)sy * src->pitch);
 
             for (x = 0; x < OUT_W; x++)
-                o[x] = lut32[in[xmap[x]]];
+                row[x] = lut32[in[xmap[x]]];
             prev_sy = sy;
         }
+        memcpy(buf + (size_t)y * DISP_W + OUT_X, row, OUT_W * 4);
     }
     if (frames_shown == 0 && flip_arg == 0)
         checkpoint("first frame");
@@ -761,6 +765,25 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
         LOG("video: a flip was refused");
     fb_next = (fb_next + 1) % NBUF;
     frames_shown++;
+    /* Every 10 seconds or so: frames shown per second, and the share of
+       the time spent drawing them, for reports of slowness. */
+    {
+        static uint64_t period_start, draw_us;
+        static unsigned period_frames;
+        uint64_t const now = microseconds();
+
+        draw_us += now - draw_start;
+        period_frames++;
+        if (!period_start)
+            period_start = now;
+        else if (now - period_start >= 10000000u) {
+            LOG("video: %.1f frames/s, %.1f ms each to draw", period_frames * 1e6 / (double)(now - period_start),
+                draw_us / 1000.0 / period_frames);
+            period_start = now;
+            period_frames = 0;
+            draw_us = 0;
+        }
+    }
     return true;
 }
 
