@@ -644,6 +644,9 @@ static void sr_show(SDL_Texture* const tex, int const w, int const h)
 {
     SDL_FRect const src = { 0.0f, 0.0f, (float)w, (float)h };
 
+    /* Black around the picture: the clear takes the last drawing colour,
+       which the iOS touch controls leave white. */
+    SDL_SetRenderDrawColor(sr_renderer, 0, 0, 0, 255);
     SDL_RenderClear(sr_renderer);
 #ifdef ZSNES_IOS
     {
