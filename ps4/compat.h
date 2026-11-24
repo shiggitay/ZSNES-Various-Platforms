@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 
 int ps4_chdir(char const* path);
 char* ps4_getcwd(char* buf, size_t size);
@@ -38,6 +39,14 @@ FILE* ps4_fopen(char const* path, char const* mode);
    failed, and the load dialog checks every ROM with it before loading). */
 int ps4_access(char const* path, int mode);
 
+/* clock_gettime: the C library's clock numbers are Linux's, where the
+   PS4's kernel is FreeBSD's: CLOCK_MONOTONIC (1) is the process's CPU time
+   there, which barely moves while ZSNES waits for the next frame, so games
+   ran at a frame now and then. Every clock but the wall clock is taken
+   from sceKernelGetProcessTime (microseconds since the program started). */
+int ps4_clock_gettime(clockid_t id, struct timespec* ts);
+
+#define clock_gettime ps4_clock_gettime
 #define chdir ps4_chdir
 #define getcwd ps4_getcwd
 #define opendir ps4_opendir

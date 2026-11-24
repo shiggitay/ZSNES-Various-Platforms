@@ -7,11 +7,13 @@
 #undef realpath
 #undef fopen
 #undef access
+#undef clock_gettime
 
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 static char cwd[1024];
@@ -313,6 +315,23 @@ int ps4_access(char const* const path, int const mode)
     if (ps4_stat(full, &st) != 0) {
         ps4_log("access %s: not found", full);
         return -1;
+    }
+    return 0;
+}
+
+int ps4_clock_gettime(clockid_t const id, struct timespec* const ts)
+{
+    if (id == 0) { /* CLOCK_REALTIME in both numberings */
+        struct timeval tv;
+
+        gettimeofday(&tv, NULL);
+        ts->tv_sec = tv.tv_sec;
+        ts->tv_nsec = (long)tv.tv_usec * 1000L;
+    } else {
+        uint64_t const us = sceKernelGetProcessTime();
+
+        ts->tv_sec = (time_t)(us / 1000000u);
+        ts->tv_nsec = (long)(us % 1000000u) * 1000L;
     }
     return 0;
 }
