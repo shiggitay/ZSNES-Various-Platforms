@@ -30,7 +30,9 @@
 #include <orbis/libkernel.h>
 
 #include <errno.h>
+#include <fcntl.h>
 #include <math.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -74,6 +76,8 @@ char const* zs3_GetHint(char const* const name) { return NULL; }
 void zs3_free(void* const p) { free(p); }
 
 static int in_menus(void) { return GUIOn || GUIOn2; }
+
+static void checkpoint(char const* step); /* the last step reached, logged */
 
 /* --- time ----------------------------------------------------------------- */
 
@@ -157,6 +161,7 @@ static void system_init(void)
     if (system_ready)
         return;
     system_ready = 1;
+    checkpoint("pads");
     if (scePadInit() != 0)
         LOG("scePadInit failed");
     pads_init();
@@ -204,6 +209,41 @@ static int writable(char const* const dir)
 
 static char data_dir[256];
 
+/* The last step reached, for the log when something crashes. */
+static char const* volatile last_step = "start";
+
+static void checkpoint(char const* const step)
+{
+    last_step = step;
+    LOG("step: %s", step);
+}
+
+/* A crash: what and where, in the log, then the system's own handling (the
+   error screen). fprintf is not safe in a signal handler in general; here
+   the program is ending anyway, and the log is all there will be. */
+static void on_crash(int const sig, siginfo_t* const info, void* const ctx)
+{
+    (void)ctx;
+    LOG("CRASH: signal %d (code %d) at address %p, after step \"%s\"", sig, info ? info->si_code : 0,
+        info ? info->si_addr : NULL, last_step);
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void crash_handlers(void)
+{
+    static int const sigs[] = { SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT };
+    struct sigaction sa;
+    unsigned i;
+
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = on_crash;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    for (i = 0; i < sizeof sigs / sizeof sigs[0]; i++)
+        sigaction(sigs[i], &sa, NULL);
+}
+
 /* Before the frontend reads its paths: settings, saves and the log in the
    first folder that takes them. /data reaches the whole system and FTP,
    but a program can only write there if it is let out of its sandbox; the
@@ -240,21 +280,36 @@ void ps4_setup(char const* const argv0)
         setvbuf(log_file, NULL, _IONBF, 0);
     LOG("ZSNES for PS4, started from %s; folder %s", argv0 ? argv0 : "?", data_dir);
     notify("ZSNES: settings and log in %s", data_dir);
+    /* The current directory: the PS4's own chdir fails, so ps4/posix.c
+       keeps one (ZSNES works out its paths from it). */
+    ps4_set_cwd(data_dir);
     if (chdir(data_dir) != 0)
         LOG("chdir %s failed", data_dir);
-    /* ZSNES's own messages, where the system lets standard output go. */
+    /* ZSNES's own messages: standard output's descriptor onto a file, where
+       re-opening the stream is refused. */
     snprintf(path, sizeof path, "%s/ZSNES Output.txt", data_dir);
-    if (freopen(path, "w", stdout))
+    if (freopen(path, "w", stdout)) {
         setvbuf(stdout, NULL, _IONBF, 0);
-    else
-        LOG("standard output stays the system's");
+    } else {
+        int const fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+        if (fd >= 0 && dup2(fd, STDOUT_FILENO) >= 0) {
+            setvbuf(stdout, NULL, _IONBF, 0);
+            LOG("ZSNES's messages in %s", path);
+        } else {
+            LOG("ZSNES's messages are not kept");
+        }
+    }
+    crash_handlers();
     memset(&param, 0, sizeof param);
     param.priority = ORBIS_KERNEL_PRIO_FIFO_LOWEST;
-    sceUserServiceInitialize(&param);
+    LOG("user service: %x", (unsigned)sceUserServiceInitialize(&param));
+    checkpoint("set up");
 }
 
 bool zs3_Init(Uint32 const flags)
 {
+    checkpoint("SDL init");
     system_init();
     inited |= flags;
     return true;
@@ -295,6 +350,7 @@ static int video_start(void)
 
     if (video_ready)
         return 1;
+    checkpoint("video");
     video_handle = sceVideoOutOpen(ORBIS_VIDEO_USER_MAIN, ORBIS_VIDEO_OUT_BUS_MAIN, 0, 0);
     if (video_handle < 0) {
         notify("ZSNES: no video output (%x)", (unsigned)video_handle);
@@ -691,6 +747,8 @@ bool zs3_UpdateWindowSurface(SDL_Window* const win)
             prev_sy = sy;
         }
     }
+    if (frames_shown == 0 && flip_arg == 0)
+        checkpoint("first frame");
     if (sceVideoOutSubmitFlip(video_handle, fb_next, ORBIS_VIDEO_OUT_FLIP_VSYNC, ++flip_arg) != 0)
         LOG("video: a flip was refused");
     fb_next = (fb_next + 1) % NBUF;
@@ -1250,6 +1308,7 @@ SDL_AudioStream* zs3_OpenAudioDeviceStream(SDL_AudioDeviceID const dev, SDL_Audi
     s->in_freq = spec->freq;
     s->resample = spec->freq != DEVICE_RATE
         && zrs_init(&s->rs, (unsigned)spec->freq, DEVICE_RATE, (unsigned)spec->channels) == 0;
+    checkpoint("sound");
     if (!audio_start()) {
         set_error("Could not open the audio port");
         if (s->resample)

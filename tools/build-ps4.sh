@@ -57,12 +57,12 @@ SRCS=$(make -s --no-print-directory --eval 'zsnes-print-srcs: ; @echo $(SRCS)' z
     tr ' ' '\n' | grep -E '^[A-Za-z0-9_/.-]+\.c$' |
     grep -v -e '^unix/sdl12compat.c$' -e '^unix/sdl12gl.c$' -e '^unix/glupload.c$' -e '^unix/safelib.c$' \
         -e '^unix/net_transport.c$' | tr '\n' ' ')
-SRCS="$SRCS ps4/ps4.c macos9/safelib.c macos9/net_stub.c"
+SRCS="$SRCS ps4/ps4.c ps4/posix.c macos9/safelib.c macos9/net_stub.c"
 
 DEFS="-DZSNES_PS4 -D__UNIXSDL__ -DZSNES_SDL12 -DNO_PNG -DNO_DEBUGGER -D_GNU_SOURCE"
 CFLAGS="-std=gnu11 -O2 -fno-strict-aliasing -Wall -Wno-unused-parameter -Wno-unused-function \
  -Wno-unused-variable -Wno-char-subscripts -Wno-pointer-sign -Wno-unknown-warning-option \
- -Werror=implicit-function-declaration -I$OUT ${PS4_CFLAGS:-}"
+ -Werror=implicit-function-declaration -I$OUT -include $ROOT/ps4/compat.h ${PS4_CFLAGS:-}"
 
 for p in cfg input md; do
     if [ ! -f "$OUT/$p.o" ] || [ "$p.psr" -nt "$OUT/$p.o" ]; then
