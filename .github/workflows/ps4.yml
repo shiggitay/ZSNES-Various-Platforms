@@ -51,11 +51,12 @@ jobs:
           )
           echo "OpenOrbis: $url"
           curl -fsSL "${url#* }" | tar -xz -C /opt/oo
-          # Some releases put everything under one folder.
-          [ -d /opt/oo/bin ] || { d=$(ls /opt/oo | head -1); mv /opt/oo/"$d"/* /opt/oo/; }
-          ls /opt/oo /opt/oo/bin/linux
-          echo "OO_PS4_TOOLCHAIN=/opt/oo" >> "$GITHUB_ENV"
-          echo "/opt/oo/bin/linux" >> "$GITHUB_PATH"
+          # The toolchain is the folder with bin/linux in it, however deep.
+          tools=$(find /opt/oo -type d -path '*/bin/linux' | head -1)
+          oo=$(dirname "$(dirname "$tools")")
+          ls "$oo" "$tools"
+          echo "OO_PS4_TOOLCHAIN=$oo" >> "$GITHUB_ENV"
+          echo "$tools" >> "$GITHUB_PATH"
       - name: OpenOrbis's right.sprx
         run: |
           git clone -q --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git /tmp/oo
