@@ -31,6 +31,7 @@
 
 #include <errno.h>
 #include <math.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,7 +132,6 @@ static void push_key(SDL_Scancode const sc, SDL_Keycode const key, int const dow
 
 /* --- the system ----------------------------------------------------------- */
 
-#define DATA_DIR "/data/zsnes"
 
 static void audio_stop(void);
 static void video_stop(void);
@@ -141,9 +141,12 @@ static int system_ready;
 
 /* Quitting: back to the PS4's home screen, which a homebrew's exit() alone
    does not do. */
+static void notify(char const* fmt, ...);
+
 static void shutdown_all(void)
 {
     LOG("quitting");
+    notify("ZSNES has quit");
     audio_stop();
     video_stop();
     sceSystemServiceLoadExec("exit", NULL);
@@ -162,24 +165,86 @@ static void system_init(void)
 
 /* Before the frontend reads its paths: everything in /data/zsnes, which the
    PS4 lets homebrew write and FTP reach. */
+/* A notification in the corner of the screen: what the PS4 shows of a
+   program before it has a picture, or when it has nowhere to write a log. */
+static void notify(char const* const fmt, ...)
+{
+    OrbisNotificationRequest r;
+    va_list ap;
+
+    memset(&r, 0, sizeof r);
+    va_start(ap, fmt);
+    vsnprintf(r.message, sizeof r.message, fmt, ap);
+    va_end(ap);
+    r.type = NotificationRequest;
+    r.unk3 = 0;
+    r.useIconImageUri = 1;
+    r.targetId = -1;
+    snprintf(r.iconUri, sizeof r.iconUri, "cxml://psnotification/tex_icon_system");
+    sceKernelSendNotificationRequest(0, &r, sizeof r, 0);
+    LOG("notification: %s", r.message);
+}
+
+/* A folder this program can write to: one it makes, or has, and in which a
+   file it writes can be read back. */
+static int writable(char const* const dir)
+{
+    char path[512];
+    FILE* f;
+
+    mkdir(dir, 0777);
+    snprintf(path, sizeof path, "%s/.zsnes-write-test", dir);
+    if (!(f = fopen(path, "w")))
+        return 0;
+    fputs("ok", f);
+    fclose(f);
+    remove(path);
+    return 1;
+}
+
+static char data_dir[256];
+
+/* Before the frontend reads its paths: settings, saves and the log in the
+   first folder that takes them. /data reaches the whole system and FTP,
+   but a program can only write there if it is let out of its sandbox; the
+   app's own download data (the package asks for some) and its temporary
+   folder are always its own. */
 void ps4_setup(char const* const argv0)
 {
+    static char const* const dirs[] = { "/data/zsnes", "/download0/zsnes", "/download0", "/temp0/zsnes" };
     OrbisUserServiceInitializeParams param;
+    char path[300];
+    unsigned i;
 
-    mkdir(DATA_DIR, 0777);
-    mkdir(DATA_DIR "/roms", 0777);
-    setenv("HOME", DATA_DIR, 1);
-    setenv("XDG_CONFIG_HOME", DATA_DIR, 1);
+    notify("ZSNES is starting");
+    data_dir[0] = '\0';
+    for (i = 0; i < sizeof dirs / sizeof dirs[0]; i++) {
+        if (writable(dirs[i])) {
+            snprintf(data_dir, sizeof data_dir, "%s", dirs[i]);
+            break;
+        }
+    }
+    if (!data_dir[0]) {
+        notify("ZSNES: no folder it can write to (tried /data, /download0, /temp0)");
+        snprintf(data_dir, sizeof data_dir, "/app0");
+    }
+    snprintf(path, sizeof path, "%s/roms", data_dir);
+    mkdir(path, 0777);
+    setenv("HOME", data_dir, 1);
+    setenv("XDG_CONFIG_HOME", data_dir, 1);
     /* The log, on a file of its own: a PS4 program shows no console, and a
        crash leaves what was written. */
-    log_file = fopen(DATA_DIR "/ZSNES Log.txt", "w");
+    snprintf(path, sizeof path, "%s/ZSNES Log.txt", data_dir);
+    log_file = fopen(path, "w");
     if (log_file)
         setvbuf(log_file, NULL, _IONBF, 0);
-    LOG("ZSNES for PS4, started from %s", argv0 ? argv0 : "?");
-    if (chdir(DATA_DIR) != 0)
-        LOG("chdir " DATA_DIR " failed");
+    LOG("ZSNES for PS4, started from %s; folder %s", argv0 ? argv0 : "?", data_dir);
+    notify("ZSNES: settings and log in %s", data_dir);
+    if (chdir(data_dir) != 0)
+        LOG("chdir %s failed", data_dir);
     /* ZSNES's own messages, where the system lets standard output go. */
-    if (freopen(DATA_DIR "/ZSNES Output.txt", "w", stdout))
+    snprintf(path, sizeof path, "%s/ZSNES Output.txt", data_dir);
+    if (freopen(path, "w", stdout))
         setvbuf(stdout, NULL, _IONBF, 0);
     else
         LOG("standard output stays the system's");
@@ -232,12 +297,14 @@ static int video_start(void)
         return 1;
     video_handle = sceVideoOutOpen(ORBIS_VIDEO_USER_MAIN, ORBIS_VIDEO_OUT_BUS_MAIN, 0, 0);
     if (video_handle < 0) {
+        notify("ZSNES: no video output (%x)", (unsigned)video_handle);
         LOG("sceVideoOutOpen failed: %x", (unsigned)video_handle);
         set_error("Could not open the video output");
         return 0;
     }
     vmem_size = (fb_size * NBUF + align - 1) / align * align;
     if (sceKernelAllocateDirectMemory(0, sceKernelGetDirectMemorySize(), vmem_size, align, 3, &vmem_off) < 0) {
+        notify("ZSNES: could not allocate video memory");
         LOG("could not allocate %u bytes of video memory", (unsigned)vmem_size);
         set_error("Out of video memory");
         return 0;
@@ -263,6 +330,7 @@ static int video_start(void)
     sceVideoOutSetFlipRate(video_handle, 0); /* every vertical blank: 60 Hz */
     video_ready = 1;
     LOG("video out %ux%u, %d buffers", disp_w, disp_h, NBUF);
+    notify("ZSNES: video ready");
     return 1;
 }
 
