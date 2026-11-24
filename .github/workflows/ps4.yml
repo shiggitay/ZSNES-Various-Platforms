@@ -80,6 +80,17 @@ jobs:
           RIGHT_SPRX=/tmp/oo/samples/piglet/sce_sys/about/right.sprx \
           SCE_MODULES=/tmp/oo/samples/piglet/sce_module \
             tools/build-ps4.sh
+      # What the PS4's loader has to handle in the program: the relocation
+      # kinds, any text relocations, thread-local data, and the segments.
+      - name: Inspect ZSNES.elf
+        run: |
+          llvm-readelf-18 -h -l build-ps4/ZSNES.elf | sed -n '1,60p'
+          echo "--- dynamic:"
+          llvm-readelf-18 -d build-ps4/ZSNES.elf | head -40
+          echo "--- relocation kinds:"
+          llvm-readelf-18 -r build-ps4/ZSNES.elf | awk '/R_X86_64/{print $3}' | sort | uniq -c
+          echo "--- largest sections:"
+          llvm-readelf-18 -S -W build-ps4/ZSNES.elf | awk 'NR>5 && $6 ~ /^[0-9a-f]+$/ {printf "%10d %s\n", strtonum("0x"$6), $2}' | sort -rn | head -12
       - uses: actions/upload-artifact@v4
         with:
           name: zsnes-ps4
