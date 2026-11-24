@@ -134,7 +134,7 @@ int CheckBatteryPercent(void)
 }
 
 /* Battery on FreeBSD/DragonFly, by Nach. */
-#elif (defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__))
+#elif (defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__)) && !defined(ZSNES_PS4) /* the PS4: FreeBSD's kernel, not its headers */
 #include <sys/sysctl.h>
 #include <sys/types.h>
 

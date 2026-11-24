@@ -1,0 +1,61 @@
+# Builds ZSNES for PS4 (tools/build-ps4.sh) in OpenOrbis's toolchain image,
+# keeps the .pkg with the run, and pushes it to the ps4-build branch.
+name: PS4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ps4.yml"
+      - "tools/build-ps4.sh"
+      - "ps4/**"
+      - "unix/**"
+      - "main.c"
+      - "ver.c"
+      - "zpath.c"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ps4:
+    runs-on: ubuntu-latest
+    container:
+      image: openorbisofficial/toolchain:latest
+      options: --user root
+    steps:
+      - name: Install tools
+        run: |
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends python3 make git ca-certificates
+      - uses: actions/checkout@v4
+      - name: OpenOrbis's right.sprx
+        run: |
+          git clone -q --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git /tmp/oo
+          ls -l /tmp/oo/samples/piglet/sce_sys/about/right.sprx
+      - name: Build
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          RIGHT_SPRX=/tmp/oo/samples/piglet/sce_sys/about/right.sprx tools/build-ps4.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zsnes-ps4
+          path: build-ps4/zsnes-ps4.pkg
+          if-no-files-found: error
+      # The .pkg on the ps4-build branch as well, where git can fetch it;
+      # [skip ci] keeps the push from starting other builds.
+      - name: Push the .pkg to the ps4-build branch
+        run: |
+          set -eu
+          dir=$(mktemp -d)
+          cp build-ps4/zsnes-ps4.pkg "$dir/"
+          cd "$dir"
+          git init -q -b ps4-build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add zsnes-ps4.pkg
+          git commit -q -m "zsnes-ps4.pkg from ${GITHUB_SHA} [skip ci]"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ps4-build
+        env:
+          GH_TOKEN: ${{ github.token }}

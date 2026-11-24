@@ -963,6 +963,13 @@ int main(int const argc, char** const argv)
         ios_setup(); /* folders and hints, before the paths are read */
     }
 #endif
+#ifdef ZSNES_PS4
+    {
+        void ps4_setup(char const* argv0);
+
+        ps4_setup(argc > 0 ? argv[0] : NULL); /* everything in /data/zsnes */
+    }
+#endif
 #ifdef ZSNES_PS3
     {
         void ps3_setup(char const* argv0);
