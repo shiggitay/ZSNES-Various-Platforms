@@ -31,12 +31,28 @@ jobs:
           apt-get install -y -q --no-install-recommends python3 make git ca-certificates curl
       - uses: actions/checkout@v4
       # The image's "latest" is OpenOrbis v0.5 (2020), without create-fself
-      # and create-gp4; its clang and .NET serve, with a newer release.
-      - name: OpenOrbis v0.5.4
+      # and create-gp4; its clang and .NET serve, with the newest release.
+      - name: OpenOrbis's newest release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /opt/oo
-          curl -fsSL https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/v0.5.4.tar.gz |
-            tar -xz -C /opt/oo
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases > /tmp/releases.json
+          url=$(python3 - <<'PY'
+          import json
+          for rel in json.load(open('/tmp/releases.json')):
+              assets = [a for a in rel['assets'] if a['name'].endswith(('.tar.gz', '.tgz'))]
+              linux = [a for a in assets if 'linux' in a['name'].lower()] or assets
+              if linux:
+                  print(rel['tag_name'], linux[0]['browser_download_url'])
+                  break
+          PY
+          )
+          echo "OpenOrbis: $url"
+          curl -fsSL "${url#* }" | tar -xz -C /opt/oo
+          # Some releases put everything under one folder.
+          [ -d /opt/oo/bin ] || { d=$(ls /opt/oo | head -1); mv /opt/oo/"$d"/* /opt/oo/; }
           ls /opt/oo /opt/oo/bin/linux
           echo "OO_PS4_TOOLCHAIN=/opt/oo" >> "$GITHUB_ENV"
           echo "/opt/oo/bin/linux" >> "$GITHUB_PATH"
